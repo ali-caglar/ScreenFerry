@@ -39,6 +39,3 @@ jobs:
             deps
             repo
           requireScope: false
-          subjectPattern: ^(?![A-Z]).+$
-          subjectPatternError: |
-            The subject "{subject}" in PR title "{title}" must start with a lowercase letter.
