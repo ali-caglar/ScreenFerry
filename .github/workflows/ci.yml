@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  macos:
+    name: macOS build/test
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Compute version
+        run: echo "VERSION=$(scripts/version.sh)" >> "$GITHUB_ENV"
+      - name: Test ScreenFerryKit
+        run: swift test --package-path apps/macos/ScreenFerryKit
+      - name: Build app
+        run: |
+          xcodebuild build \
+            -project apps/macos/ScreenFerry.xcodeproj \
+            -scheme ScreenFerry \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+
+  windows:
+    name: Windows build/test
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: apps/windows/global.json
+      - name: Compute version
+        run: echo "VERSION=$(scripts/version.sh)" >> "$GITHUB_ENV"
+      - name: Restore
+        run: dotnet restore apps/windows/ScreenFerry.sln --locked-mode
+      - name: Build
+        run: dotnet build apps/windows/ScreenFerry.sln -c Release --no-restore -p:Version="$VERSION"
+      - name: Test
+        run: dotnet test apps/windows/ScreenFerry.sln -c Release --no-build
+
+  protocol:
+    name: Protocol fixtures
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: protocol
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: protocol/package-lock.json
+      - run: npm ci
+      - run: npm run validate

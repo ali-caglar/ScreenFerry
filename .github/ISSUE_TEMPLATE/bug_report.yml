@@ -1,0 +1,55 @@
+name: Bug report
+description: Something in ScreenFerry does not work as expected.
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Activate scene "both → PC"
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ScreenFerry version
+      description: From the menu-bar / tray menu, or the release you downloaded.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system(s) involved
+      multiple: true
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version(s)
+      placeholder: macOS 15.4, Windows 11 24H2
+  - type: textarea
+    id: setup
+    attributes:
+      label: Monitors and connections
+      description: Monitor models and how each is connected (HDMI, DisplayPort, USB-C, dock, KVM, adapter).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output. Remove anything private.
+      render: text

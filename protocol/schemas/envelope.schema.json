@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/envelope.schema.json",
+  "title": "Envelope",
+  "description": "Fields every ScreenFerry message carries. Message schemas extend this one.",
+  "type": "object",
+  "required": ["protocolVersion", "type"],
+  "properties": {
+    "protocolVersion": {
+      "description": "0 while the protocol is a draft (before Phase 3).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9]*(\\.[a-z][a-zA-Z0-9]*)*$"
+    }
+  }
+}
