@@ -25,6 +25,8 @@ jobs:
         run: echo "VERSION=$(scripts/version.sh)" >> "$GITHUB_ENV"
       - name: Test ScreenFerryKit
         run: swift test --package-path apps/macos/ScreenFerryKit
+      - name: Build ddc-probe-macos
+        run: swift build -c release --package-path tools/ddc-probe-macos
       - name: Build app
         run: |
           xcodebuild build \

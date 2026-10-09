@@ -46,6 +46,7 @@ jobs:
         if: matrix.language == 'swift'
         run: |
           swift build --package-path apps/macos/ScreenFerryKit
+          swift build --package-path tools/ddc-probe-macos
           xcodebuild build \
             -project apps/macos/ScreenFerry.xcodeproj \
             -scheme ScreenFerry \
