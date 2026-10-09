@@ -1,6 +1,6 @@
 # ScreenFerry — Project Brief
 
-> Working name. Status: Phase 0 (repository bootstrap). Owner/maintainer: Ali.
+> Working name. Status: Phase 1 (DDC probes); Phase 0 completed 2026-10-09. Owner/maintainer: Ali.
 > This brief is the source of truth for scope and architecture. Decisions that change it
 > are recorded as ADRs in `docs/adr/` and then reflected here.
 
@@ -201,29 +201,29 @@ enforced on PRs by a DCO GitHub App. Lower friction than a CLA, standard for com
 
 Claude Code cannot change these through files; do them in GitHub (or via `gh api`):
 
-- [ ] General: allow **squash merging only**; default squash message = PR title + description;
+- [x] General: allow **squash merging only**; default squash message = PR title + description;
       **automatically delete head branches**.
-- [ ] Ruleset for `main` (Settings → Rules → Rulesets):
-  - [ ] Restrict deletions; block force pushes.
-  - [ ] Require a pull request before merging. Required approvals: **0 while solo**
+- [x] Ruleset for `main` (Settings → Rules → Rulesets):
+  - [x] Restrict deletions; block force pushes.
+  - [x] Require a pull request before merging. Required approvals: **0 while solo**
         (you cannot approve your own PR), raise to 1 when a second maintainer joins.
         Dismiss stale approvals; require conversation resolution.
-  - [ ] Require status checks (exact names): `macOS build/test`, `Windows build/test`,
+  - [x] Require status checks (exact names): `macOS build/test`, `Windows build/test`,
         `Protocol fixtures`, `PR title`, `DCO`. Require branches to be up to date.
-  - [ ] Require linear history.
-  - [ ] **Do not** enable "Require signed commits" for now: with it, GitHub blocks
+  - [x] Require linear history.
+  - [x] **Do not** enable "Require signed commits" for now: with it, GitHub blocks
         squash-merging PRs you didn't author. Instead sign your own commits (SSH or GPG
         signing + vigilant mode).
-- [ ] Security: private vulnerability reporting **on**, Dependabot alerts + security updates,
+- [x] Security: private vulnerability reporting **on**, Dependabot alerts + security updates,
       secret scanning + push protection. CodeQL runs from `.github/workflows/codeql.yml`
       (advanced setup, needed for Swift) — leave CodeQL **default setup off**.
-- [ ] Release PRs: pull requests opened with `GITHUB_TOKEN` do not trigger CI, so required
+- [x] Release PRs: pull requests opened with `GITHUB_TOKEN` do not trigger CI, so required
       checks would never run on them. Create a fine-grained PAT for this repo only
       (Contents: read/write, Pull requests: read/write) and save it as the Actions secret
       `RELEASE_PLEASE_TOKEN`. Also enable Settings → Actions → General →
       "Allow GitHub Actions to create and approve pull requests".
-- [ ] Install the DCO GitHub App.
-- [ ] Topics: `multi-monitor`, `kvm`, `ddc-ci`, `macos`, `windows`, `display`, `utility`.
+- [x] Install the DCO GitHub App.
+- [x] Topics: `multi-monitor`, `kvm`, `ddc-ci`, `macos`, `windows`, `display`, `utility`.
 
 ## 9. Decisions
 
