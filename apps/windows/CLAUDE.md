@@ -34,5 +34,7 @@ Windows.
 - NuGet lock files (`packages.lock.json`) are committed and CI restores in locked mode. After
   changing a package, run `dotnet restore` (without `--locked-mode`) and commit the lock files.
 - Add package versions to `Directory.Packages.props`, not to `.csproj` files.
+- A self-contained `dotnet publish -r <rid>` adds RID entries to the lock files. Don't commit
+  those changes; CI enforces the lock files with `dotnet restore --locked-mode` before publishing.
 - Windows APIs (Monitor Configuration API in `dxva2`, CCD `QueryDisplayConfig`/`SetDisplayConfig`)
   go in `ScreenFerry.Windows`, never in Core.
