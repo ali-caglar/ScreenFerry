@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\..\protocol\fixtures\**\*.json" LinkBase="fixtures" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\..\..\protocol\test-vectors\*.json" LinkBase="test-vectors" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

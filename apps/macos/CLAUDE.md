@@ -5,7 +5,8 @@ Swift 6 (language mode 6), SwiftUI `MenuBarExtra`, minimum macOS 13 (ADR 0002).
 ## Layout
 
 - `ScreenFerryKit/` — Swift package with all logic and its tests. Put new code here unless it
-  needs the app bundle.
+  needs the app bundle. Targets: `ScreenFerryKit` (portable logic: protocol, EDID, DDC/CI
+  packets) and `ScreenFerryDDC` (IOKit/private-API transport; keep private APIs only here).
 - `ScreenFerry/` — app target sources (menu-bar UI, app lifecycle).
 - `ScreenFerry.xcodeproj` — app target only; depends on `ScreenFerryKit` as a local package.
   Edit it in Xcode. It was generated once with XcodeGen; there is no `project.yml`.

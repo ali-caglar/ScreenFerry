@@ -5,6 +5,8 @@ The contract between agents. The macOS and Windows agents share no code; they sh
 - `schemas/` — one JSON Schema (draft 2020-12) per message type. **Normative.**
 - `fixtures/<schema>/` — golden messages. Each must validate against `schemas/<schema>.schema.json`,
   and both agents' test suites must parse (and, from Phase 3, produce) them.
+- `test-vectors/` — inputs and expected outputs for algorithms both agents implement
+  (e.g. `monitor-identity.json`); both test suites check them.
 - `scripts/validate-fixtures.mjs` — the CI check.
 
 ```sh

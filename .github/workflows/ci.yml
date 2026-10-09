@@ -61,6 +61,16 @@ jobs:
         run: dotnet build apps/windows/ScreenFerry.sln -c Release --no-restore -p:Version="$VERSION"
       - name: Test
         run: dotnet test apps/windows/ScreenFerry.sln -c Release --no-build
+      - name: Publish ddc-probe-windows
+        run: |
+          dotnet publish tools/ddc-probe-windows -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:RestoreLockedMode=true \
+            -p:Version="$VERSION" -o probe
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ddc-probe-windows-x64
+          path: probe/ddc-probe.exe
+          retention-days: 14
 
   protocol:
     name: Protocol fixtures
