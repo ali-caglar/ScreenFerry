@@ -15,7 +15,8 @@ architecture and roadmap; check which phase is current before adding features.
 ## Rules
 
 - Branch from `main` as `<type>/<description>`; never commit directly to `main`.
-- PR title = squash commit = `type(scope): subject` (Conventional Commits, lowercase subject).
+- PR title = squash commit = `type(scope): subject` (Conventional Commits; start the subject
+  lowercase — not enforced, since Dependabot capitalizes).
   Types: `build chore ci docs feat fix perf refactor revert style test`.
   Scopes: `macos windows protocol probe adr ci deps repo`. The lists live in
   `.github/workflows/pr-title.yml` and `CONTRIBUTING.md`; change all three together.
