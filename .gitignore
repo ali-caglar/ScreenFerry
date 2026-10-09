@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# Xcode / SwiftPM
+DerivedData/
+build/
+.build/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.binlog
+
+# Node (protocol tooling)
+node_modules/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Release / signing material must never be committed
+*.p12
+*.pfx
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.snk
+dist/

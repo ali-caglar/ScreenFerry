@@ -1,0 +1,86 @@
+name: Monitor compatibility report
+description: Tell us how DDC/CI input switching works (or doesn't) on your monitor.
+title: "[compat] <monitor model> on <OS>"
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports feed [docs/compatibility.md](https://github.com/ali-caglar/ScreenFerry/blob/main/docs/compatibility.md).
+        One report per monitor + computer + connection combination, please.
+  - type: input
+    id: model
+    attributes:
+      label: Monitor manufacturer and model
+      placeholder: Samsung Odyssey OLED G8
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Monitor firmware version (if known)
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options:
+        - HDMI
+        - DisplayPort
+        - USB-C / Thunderbolt (DisplayPort Alt Mode)
+        - Through a dock or hub
+        - Through a KVM switch
+        - Adapter (describe below)
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Computer / OS
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 11
+        - Windows 10
+    validations:
+      required: true
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+    validations:
+      required: true
+  - type: dropdown
+    id: ddc-read
+    attributes:
+      label: Reading input source (VCP 0x60)
+      options:
+        - Works
+        - Fails
+        - Not tested
+    validations:
+      required: true
+  - type: dropdown
+    id: ddc-write
+    attributes:
+      label: Switching input source (writing VCP 0x60)
+      options:
+        - Works
+        - Fails
+        - Works only from the active input
+        - Not tested
+    validations:
+      required: true
+  - type: textarea
+    id: input-codes
+    attributes:
+      label: Observed input codes
+      description: The 0x60 value read for each input, if you have them.
+      placeholder: |
+        HDMI 1 = 0x11
+        DisplayPort = 0x0F
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes and tool output
+      description: Anything else, e.g. ddc-probe output, monitor OSD settings needed (DDC/CI on), quirks.
+      render: text

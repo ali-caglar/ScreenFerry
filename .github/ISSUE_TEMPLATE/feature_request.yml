@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check the [project brief](https://github.com/ali-caglar/ScreenFerry/blob/main/docs/BRIEF.md) first;
+        some things (keyboard/mouse sharing, Linux, brightness UI, USB switching) are deliberately out of scope for v1.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
