@@ -5,6 +5,8 @@ The contract between agents. The macOS and Windows agents share no code; they sh
 - `schemas/` — one JSON Schema (draft 2020-12) per message type. **Normative.**
 - `fixtures/<schema>/` — golden messages. Each must validate against `schemas/<schema>.schema.json`,
   and both agents' test suites must parse (and, from Phase 3, produce) them.
+- `test-vectors/` — inputs and expected outputs for algorithms both agents implement
+  (e.g. `monitor-identity.json`); both test suites check them.
 - `scripts/validate-fixtures.mjs` — the CI check.
 
 ```sh
@@ -31,6 +33,22 @@ Only the common envelope exists so far; message types are designed in Phase 3.
 |---|---|---|
 | `protocolVersion` | integer ≥ 0 | Protocol version of the sender. |
 | `type` | string | Message type, e.g. `scene.activate`. |
+
+## Monitor identity
+
+Both agents derive the same key for a physical monitor from its EDID base block
+(the first 128 bytes; extension blocks are ignored):
+
+1. `MMM-PPPP-S`, where `MMM` is the three-letter PNP manufacturer ID, `PPPP` the product
+   code as four uppercase hex digits, and `S` the serial-number display descriptor (`0xFF`),
+   trimmed — for example `SAM-E030-H1AK500000`.
+2. Without that descriptor, `S` is the 32-bit serial number (bytes 12–15, little-endian) in
+   decimal, if it is not 0 — for example `AUS-2703-153957`.
+3. Otherwise `edid-` followed by the first 8 bytes of the SHA-256 of the base block, as
+   lowercase hex.
+
+Known issue: some vendors put the same placeholder serial in every unit (Samsung uses
+`H1AK500000`), so two identical monitors can share a key. To be resolved in Phase 3.
 
 Transport (Phase 3): JSON messages over a mutually authenticated, encrypted TCP channel
 between paired agents; discovery via DNS-SD `_screenferry._tcp`.
