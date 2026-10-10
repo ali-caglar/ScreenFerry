@@ -7,7 +7,11 @@ internal static unsafe partial class DisplayConfigNative
 {
     public const uint QdcAllPaths = 0x1;
     public const uint QdcOnlyActivePaths = 0x2;
+    public const uint SdcTopologySupplied = 0x10;
+    public const uint SdcValidate = 0x40;
     public const uint SdcApply = 0x80;
+    public const uint SdcAllowPathOrderChanges = 0x2000;
+    public const uint ModeInfoTypeSource = 1;
     public const uint SdcUseSuppliedDisplayConfig = 0x20;
     public const uint SdcSaveToDatabase = 0x200;
     public const uint SdcAllowChanges = 0x400;

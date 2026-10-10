@@ -56,10 +56,11 @@ public static unsafe class DisplayTopology
         {
             throw new InvalidOperationException("Refusing to detach the last active display.");
         }
+        KeepPrimaryAtOrigin(remaining, modes);
         Apply(remaining, modes, "Detaching the display");
     }
 
-    /// <summary>Adds the display back to the desktop, extending it; Windows picks the mode.</summary>
+    /// <summary>Adds the display back to the desktop, extending it.</summary>
     public static void Attach(DisplayTarget target)
     {
         var (all, modes) = Query(QdcAllPaths);
@@ -115,9 +116,89 @@ public static unsafe class DisplayTopology
         }
     }
 
-    /// <summary>Applies the given active paths, passing only the modes they reference.</summary>
+    /// <summary>The primary display must sit at (0, 0); if it was removed, shift the layout to the nearest remaining one.</summary>
+    private static void KeepPrimaryAtOrigin(PathInfo[] paths, ModeInfo[] modes)
+    {
+        var sourceModes = paths
+            .Select(p => p.Source.ModeInfoIdx)
+            .Where(i => i < modes.Length && modes[i].InfoType == ModeInfoTypeSource)
+            .Distinct()
+            .ToList();
+        if (sourceModes.Count == 0 || sourceModes.Any(i => Position(ref modes[i]) == (0, 0)))
+        {
+            return;
+        }
+        var origin = sourceModes.Select(i => Position(ref modes[i])).MinBy(p => Math.Abs((long)p.X) + Math.Abs((long)p.Y));
+        foreach (var i in sourceModes)
+        {
+            var (x, y) = Position(ref modes[i]);
+            SetPosition(ref modes[i], x - origin.X, y - origin.Y);
+        }
+    }
+
+    // DISPLAYCONFIG_SOURCE_MODE: width, height, pixelFormat, then POINTL position at byte 12.
+    private static (int X, int Y) Position(ref ModeInfo mode)
+    {
+        fixed (ulong* payload = mode.Payload)
+        {
+            var bytes = (byte*)payload;
+            return (*(int*)(bytes + 12), *(int*)(bytes + 16));
+        }
+    }
+
+    private static void SetPosition(ref ModeInfo mode, int x, int y)
+    {
+        fixed (ulong* payload = mode.Payload)
+        {
+            var bytes = (byte*)payload;
+            *(int*)(bytes + 12) = x;
+            *(int*)(bytes + 16) = y;
+        }
+    }
+
+    /// <summary>
+    /// Applies the given active paths: first with their modes (keeps the layout, saved to the database),
+    /// then as a bare topology for Windows to complete. Each is validated before it is applied.
+    /// </summary>
     private static void Apply(PathInfo[] paths, ModeInfo[] modes, string operation)
     {
+        var (suppliedPaths, suppliedModes) = WithReferencedModes(paths, modes);
+        var supplied = Set(suppliedPaths, suppliedModes, SdcUseSuppliedDisplayConfig | SdcAllowChanges | SdcSaveToDatabase);
+        if (supplied == 0)
+        {
+            return;
+        }
+
+        var topologyPaths = paths.ToArray();
+        for (var i = 0; i < topologyPaths.Length; i++)
+        {
+            topologyPaths[i].Source.ModeInfoIdx = ModeIdxInvalid;
+            topologyPaths[i].Target.ModeInfoIdx = ModeIdxInvalid;
+        }
+        var topology = Set(topologyPaths, [], SdcTopologySupplied | SdcAllowPathOrderChanges);
+        if (topology == 0)
+        {
+            return;
+        }
+        throw new DisplayTopologyException($"{operation} (supplied config: {supplied}, supplied topology: {topology})", topology);
+    }
+
+    /// <summary>Validates, then applies; returns the Win32 error, 0 on success.</summary>
+    private static int Set(PathInfo[] paths, ModeInfo[] modes, uint flags)
+    {
+        fixed (PathInfo* pathPointer = paths)
+        fixed (ModeInfo* modePointer = modes)
+        {
+            var modeArg = modes.Length == 0 ? null : modePointer;
+            var error = SetDisplayConfig((uint)paths.Length, pathPointer, (uint)modes.Length, modeArg, flags | SdcValidate);
+            return error != 0 ? error : SetDisplayConfig((uint)paths.Length, pathPointer, (uint)modes.Length, modeArg, flags | SdcApply);
+        }
+    }
+
+    /// <summary>Copies the paths with their mode indices remapped to a compact array of only the modes they use.</summary>
+    private static (PathInfo[] Paths, ModeInfo[] Modes) WithReferencedModes(PathInfo[] paths, ModeInfo[] modes)
+    {
+        var result = paths.ToArray();
         var used = new List<ModeInfo>();
         var remap = new Dictionary<uint, uint>();
         uint Remap(uint index)
@@ -134,25 +215,12 @@ public static unsafe class DisplayTopology
             }
             return mapped;
         }
-        for (var i = 0; i < paths.Length; i++)
+        for (var i = 0; i < result.Length; i++)
         {
-            paths[i].Source.ModeInfoIdx = Remap(paths[i].Source.ModeInfoIdx);
-            paths[i].Target.ModeInfoIdx = Remap(paths[i].Target.ModeInfoIdx);
+            result[i].Source.ModeInfoIdx = Remap(result[i].Source.ModeInfoIdx);
+            result[i].Target.ModeInfoIdx = Remap(result[i].Target.ModeInfoIdx);
         }
-
-        var modeArray = used.ToArray();
-        int error;
-        fixed (PathInfo* pathPointer = paths)
-        fixed (ModeInfo* modePointer = modeArray)
-        {
-            error = SetDisplayConfig(
-                (uint)paths.Length, pathPointer, (uint)modeArray.Length, modeArray.Length == 0 ? null : modePointer,
-                SdcApply | SdcUseSuppliedDisplayConfig | SdcAllowChanges | SdcSaveToDatabase);
-        }
-        if (error != 0)
-        {
-            throw new DisplayTopologyException(operation, error);
-        }
+        return (result, [.. used]);
     }
 
     private static (string FriendlyName, string Path) TargetName(Luid adapterId, uint targetId)
