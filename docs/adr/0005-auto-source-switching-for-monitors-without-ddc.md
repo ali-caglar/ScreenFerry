@@ -77,3 +77,10 @@ the monitor's setting is on.
   the Mac's HDMI link was steady; while it showed the PC (Mac detached), the link
   dropped about every 10 s. If that holds, an agent could tell whether an `autoSource`
   monitor is on its input. To be tested before relying on it.
+- 2026-10-10, **Phase 2 acceptance.** Handoffs Mac→PC and PC→Mac with the release
+  ledger worked; the new owner's attach switched the G8 even while the old owner was still
+  attached. Five release/take rounds passed on each OS. From the no-signal countdown the
+  G8 needs a few seconds to lock on after an attach; releasing again within ~2 s hid every
+  switch, so a monitor must stay attached a few seconds before it counts as switched. Sleep
+  and wake on either machine kept the G8 detached there, and a waking Mac did not pull the
+  G8 away from the PC.

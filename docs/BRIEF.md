@@ -1,6 +1,6 @@
 # ScreenFerry — Project Brief
 
-> Working name. Status: Phase 1 (DDC probes); Phase 0 completed 2026-10-09. Owner/maintainer: Ali.
+> Working name. Status: Phase 3 (agent, discovery, pairing); Phase 0 completed 2026-10-09, Phases 1–2 2026-10-10. Owner/maintainer: Ali.
 > This brief is the source of truth for scope and architecture. Decisions that change it
 > are recorded as ADRs in `docs/adr/` and then reflected here.
 
@@ -142,6 +142,8 @@ Each phase ends with its acceptance criteria met and merged to `main`.
 **Phase 2 — Attach/detach displays**
 - Platform module that detaches/re-attaches a given monitor and moves windows off it first.
 - Done when: a monitor can be detached and restored repeatedly, surviving sleep/wake.
+- Result: `DisplayHandoff` in both agents (release ledger, minimum absence, reconcile). The OS
+  moves windows off a detached display. Acceptance on the G8 is recorded in ADR 0005.
 
 **Phase 3 — Agent, discovery, pairing, protocol v1**
 - Background agent, DNS-SD discovery, pairing flow, encrypted channel, ownership state.
