@@ -11,6 +11,50 @@ public sealed record DisplayTarget(string FriendlyName, string DevicePath, bool 
     internal uint TargetId { get; init; }
 }
 
+/// <summary>The active display configuration captured before a detach, used to restore it exactly.</summary>
+/// <remarks>Adapter LUIDs change across reboots, so a layout saved before a reboot no longer applies.</remarks>
+public sealed class DisplayLayout
+{
+    internal DisplayLayout(PathInfo[] paths, ModeInfo[] modes)
+    {
+        Paths = paths;
+        Modes = modes;
+    }
+
+    internal PathInfo[] Paths { get; }
+
+    internal ModeInfo[] Modes { get; }
+
+    public byte[] ToBytes()
+    {
+        var pathBytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes(Paths.AsSpan());
+        var modeBytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes(Modes.AsSpan());
+        var result = new byte[8 + pathBytes.Length + modeBytes.Length];
+        BitConverter.TryWriteBytes(result.AsSpan(0), Paths.Length);
+        BitConverter.TryWriteBytes(result.AsSpan(4), Modes.Length);
+        pathBytes.CopyTo(result.AsSpan(8));
+        modeBytes.CopyTo(result.AsSpan(8 + pathBytes.Length));
+        return result;
+    }
+
+    public static unsafe DisplayLayout? FromBytes(byte[] bytes)
+    {
+        if (bytes.Length < 8)
+        {
+            return null;
+        }
+        var pathCount = BitConverter.ToInt32(bytes, 0);
+        var modeCount = BitConverter.ToInt32(bytes, 4);
+        if (pathCount < 0 || modeCount < 0 || bytes.Length != 8 + (pathCount * sizeof(PathInfo)) + (modeCount * sizeof(ModeInfo)))
+        {
+            return null;
+        }
+        var paths = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, PathInfo>(bytes.AsSpan(8, pathCount * sizeof(PathInfo))).ToArray();
+        var modes = System.Runtime.InteropServices.MemoryMarshal.Cast<byte, ModeInfo>(bytes.AsSpan(8 + (pathCount * sizeof(PathInfo)))).ToArray();
+        return new DisplayLayout(paths, modes);
+    }
+}
+
 public sealed class DisplayTopologyException(string operation, int error)
     : Exception($"{operation} failed (Win32 error {error}: {new System.ComponentModel.Win32Exception(error).Message}).");
 
@@ -43,25 +87,33 @@ public static unsafe class DisplayTopology
             .ToList();
     }
 
-    /// <summary>Removes the display from the desktop and saves that, so it stays detached across replugs.</summary>
-    public static void Detach(DisplayTarget target)
+    /// <summary>
+    /// Removes the display from the desktop and saves that, so it stays detached across replugs.
+    /// Returns the layout from before, for <see cref="Attach"/>; null if it was already detached.
+    /// </summary>
+    public static DisplayLayout? Detach(DisplayTarget target)
     {
         var (paths, modes) = Query(QdcOnlyActivePaths);
         var remaining = paths.Where(p => !IsTarget(p, target)).ToArray();
         if (remaining.Length == paths.Length)
         {
-            return;
+            return null;
         }
         if (remaining.Length == 0)
         {
             throw new InvalidOperationException("Refusing to detach the last active display.");
         }
+        var before = new DisplayLayout(paths, modes.ToArray());
         KeepPrimaryAtOrigin(remaining, modes);
-        Apply(remaining, modes, "Detaching the display");
+        Apply("Detaching the display", Supplied(remaining, modes), Topology(remaining));
+        return before;
     }
 
-    /// <summary>Adds the display back to the desktop, extending it.</summary>
-    public static void Attach(DisplayTarget target)
+    /// <summary>
+    /// Adds the display back. Restores <paramref name="previous"/> exactly when it still applies,
+    /// otherwise the layout Windows last used for these displays, otherwise one Windows picks.
+    /// </summary>
+    public static void Attach(DisplayTarget target, DisplayLayout? previous = null)
     {
         var (all, modes) = Query(QdcAllPaths);
         var active = all.Where(p => (p.Flags & PathActive) != 0).ToList();
@@ -82,7 +134,15 @@ public static unsafe class DisplayTopology
         path.Source.ModeInfoIdx = ModeIdxInvalid;
         path.Target.ModeInfoIdx = ModeIdxInvalid;
         active.Add(path);
-        Apply([.. active], modes, "Attaching the display");
+
+        var attempts = new List<(PathInfo[], ModeInfo[], uint)>();
+        if (previous is not null && previous.Paths.Any(p => IsTarget(p, target)))
+        {
+            attempts.Add(Supplied(previous.Paths, previous.Modes));
+        }
+        attempts.Add(Topology([.. active]));
+        attempts.Add(Supplied([.. active], modes));
+        Apply("Attaching the display", [.. attempts]);
     }
 
     private static bool IsTarget(PathInfo path, DisplayTarget target) =>
@@ -156,31 +216,39 @@ public static unsafe class DisplayTopology
         }
     }
 
-    /// <summary>
-    /// Applies the given active paths: first with their modes (keeps the layout, saved to the database),
-    /// then as a bare topology for Windows to complete. Each is validated before it is applied.
-    /// </summary>
-    private static void Apply(PathInfo[] paths, ModeInfo[] modes, string operation)
+    /// <summary>The paths with their modes, saved to the database; keeps positions and primary.</summary>
+    private static (PathInfo[], ModeInfo[], uint) Supplied(PathInfo[] paths, ModeInfo[] modes)
     {
         var (suppliedPaths, suppliedModes) = WithReferencedModes(paths, modes);
-        var supplied = Set(suppliedPaths, suppliedModes, SdcUseSuppliedDisplayConfig | SdcAllowChanges | SdcSaveToDatabase);
-        if (supplied == 0)
-        {
-            return;
-        }
+        return (suppliedPaths, suppliedModes, SdcUseSuppliedDisplayConfig | SdcAllowChanges | SdcSaveToDatabase);
+    }
 
+    /// <summary>Only which paths are active; Windows takes the modes from its database or picks them.</summary>
+    private static (PathInfo[], ModeInfo[], uint) Topology(PathInfo[] paths)
+    {
         var topologyPaths = paths.ToArray();
         for (var i = 0; i < topologyPaths.Length; i++)
         {
             topologyPaths[i].Source.ModeInfoIdx = ModeIdxInvalid;
             topologyPaths[i].Target.ModeInfoIdx = ModeIdxInvalid;
         }
-        var topology = Set(topologyPaths, [], SdcTopologySupplied | SdcAllowPathOrderChanges);
-        if (topology == 0)
+        return (topologyPaths, [], SdcTopologySupplied | SdcAllowPathOrderChanges);
+    }
+
+    /// <summary>Tries each configuration in order until one validates and applies.</summary>
+    private static void Apply(string operation, params (PathInfo[] Paths, ModeInfo[] Modes, uint Flags)[] attempts)
+    {
+        var errors = new List<int>();
+        foreach (var (paths, modes, flags) in attempts)
         {
-            return;
+            var error = Set(paths, modes, flags);
+            if (error == 0)
+            {
+                return;
+            }
+            errors.Add(error);
         }
-        throw new DisplayTopologyException($"{operation} (supplied config: {supplied}, supplied topology: {topology})", topology);
+        throw new DisplayTopologyException($"{operation} (attempts: {string.Join(", ", errors)})", errors[^1]);
     }
 
     /// <summary>Validates, then applies; returns the Win32 error, 0 on success.</summary>

@@ -38,7 +38,10 @@ input of the only monitor you are looking at sends it to the other computer.
 | `attach <n>` | Re-attach, extending the desktop. |
 
 Uses the CCD API (`SetDisplayConfig`), like "Disconnect this display" in Settings, but works
-with any number of monitors. Changes are saved to Windows' display database, so a detached
+with any number of monitors. The layout from before the detach (positions, primary display,
+modes) is restored on attach; with `--keep` it is saved under
+`%LOCALAPPDATA%\ScreenFerry\detached\` until then. A layout saved before a reboot no longer
+applies, and Windows picks one instead. Changes are saved to Windows' display database, so a detached
 monitor stays detached after replugging; `attach` or Settings → Display brings it back.
 The last active monitor can't be detached. Unlike macOS, Windows keeps listing detached
 monitors, so their numbers stay valid.

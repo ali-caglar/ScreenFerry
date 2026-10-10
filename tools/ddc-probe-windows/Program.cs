@@ -179,16 +179,24 @@ void RunTopology(string[] arguments)
     }
     var target = targets[(int)index - 1];
 
+    var layoutFile = LayoutFile(target);
     if (arguments[0] == "attach")
     {
-        DisplayTopology.Attach(target);
+        var saved = File.Exists(layoutFile) ? DisplayLayout.FromBytes(File.ReadAllBytes(layoutFile)) : null;
+        DisplayTopology.Attach(target, saved);
+        File.Delete(layoutFile);
         Console.WriteLine("Attached.");
         return;
     }
 
-    DisplayTopology.Detach(target);
+    var layout = DisplayTopology.Detach(target);
     if (arguments.Length > 2 && arguments[2] == "--keep")
     {
+        if (layout is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(layoutFile)!);
+            File.WriteAllBytes(layoutFile, layout.ToBytes());
+        }
         Console.WriteLine($"Detached monitor {index}. Re-attach with `attach {index}`.");
         return;
     }
@@ -203,8 +211,14 @@ void RunTopology(string[] arguments)
     Console.CancelKeyPress += onCancel;
     interrupted.Wait(TimeSpan.FromSeconds(seconds));
     Console.CancelKeyPress -= onCancel;
-    DisplayTopology.Attach(target);
+    DisplayTopology.Attach(target, layout);
     Console.WriteLine($"Re-attached monitor {index}.");
+}
+
+static string LayoutFile(DisplayTarget target)
+{
+    var key = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(target.DevicePath.ToUpperInvariant())))[..16];
+    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScreenFerry", "detached", key + ".layout");
 }
 
 PhysicalDisplay Display(string[] arguments, int position)
