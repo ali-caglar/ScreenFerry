@@ -15,10 +15,16 @@ let usageText = """
 
       displays                      Displays known to macOS, with their CoreGraphics id
       detach <id> [seconds]         Detach a display, re-attach after `seconds` (default 10)
-      detach <id> --keep            Detach and leave it detached
-      attach <id>                   Re-attach a detached display
+      attach <id>                   Re-attach a display by id (recovery)
 
-    <display> is the number shown by `list`; <id> is the id shown by `displays`.
+      release <monitor>             Detach and remember it (what the agent does for a non-owner)
+      take <monitor> [T]            Wait until it has been released for T s (default 25), attach
+      released                      Monitors this Mac has released
+      reconcile                     Detach released monitors that came back (e.g. after login)
+      cycle <monitor> <count> [T]   Release and take repeatedly, checking each step
+
+    <display> is the number shown by `list`; <id> is the id shown by `displays`;
+    <monitor> is an id from `displays` or an identity such as SAM-E030-H1AK500000.
     Numbers are decimal or 0x-prefixed hex.
     Useful codes: 0x10 brightness (harmless test), 0x60 input source.
     """
@@ -96,11 +102,40 @@ func list(_ displays: [ExternalDisplay]) {
 }
 
 func edidIdentity(for display: DisplayInfo, among externals: [ExternalDisplay]) -> String? {
-    externals.compactMap(\.edid).first { edid in
-        let vendor = UInt32(edid.baseBlock[8]) << 8 | UInt32(edid.baseBlock[9])
-        return vendor == display.vendor && UInt32(edid.productCode) == display.model
-            && (display.serial == 0 || edid.serialNumber == display.serial)
-    }?.identity
+    externals.compactMap(\.edid).first { DisplayHandoff.matches($0, display) }?.identity
+}
+
+func monitorIdentity(_ argument: String?) throws -> String {
+    guard let argument else { throw ProbeError.usage("Missing <monitor>.") }
+    guard let number = try? parseNumber(argument) else { return argument }
+    let externals = (try? ExternalDisplay.all()) ?? []
+    guard let display = DisplayControl.allDisplays().first(where: { $0.id == CGDirectDisplayID(number) }),
+          let identity = edidIdentity(for: display, among: externals)
+    else { throw ProbeError.usage("No external monitor with id \(number); see `displays`.") }
+    return identity
+}
+
+func seconds(_ argument: String?, default value: TimeInterval) throws -> TimeInterval {
+    try argument.map { TimeInterval(try parseNumber($0)) } ?? value
+}
+
+func cycle(_ identity: String, count: Int, minimumAbsence: TimeInterval) throws {
+    let handoff = DisplayHandoff()
+    var failures = 0
+    for round in 1...max(count, 1) {
+        let started = Date()
+        do {
+            try handoff.release(identity)
+            let waited = try handoff.take(identity, minimumAbsence: minimumAbsence)
+            print(String(format: "round %d/%d: ok (waited %.0f s, total %.1f s)", round, count, waited, Date().timeIntervalSince(started)))
+        } catch {
+            failures += 1
+            print("round \(round)/\(count): FAILED — \(error)")
+            _ = try? handoff.take(identity, minimumAbsence: 0)
+        }
+    }
+    print("\(count - failures)/\(count) rounds ok")
+    if failures > 0 { exit(1) }
 }
 
 func listDisplays() {
@@ -127,12 +162,8 @@ func displayID(_ argument: String?, mustBeListed: Bool = true) throws -> CGDirec
     return id
 }
 
-func detach(_ id: CGDirectDisplayID, reattachAfter seconds: Int?) throws {
+func detach(_ id: CGDirectDisplayID, reattachAfter seconds: Int) throws {
     try DisplayControl.setEnabled(id, false)
-    guard let seconds else {
-        print("Detached display \(id). Re-attach with `attach \(id)` (logging out also restores it).")
-        return
-    }
     print("Detached display \(id). Re-attaching in \(seconds) s; Ctrl+C re-attaches now.")
     signal(SIGINT, SIG_IGN)
     let done = DispatchSemaphore(value: 0)
@@ -158,8 +189,38 @@ func run(_ arguments: [String]) throws {
         return
     case "detach":
         let id = try displayID(rest.first)
-        let option = rest.dropFirst().first
-        try detach(id, reattachAfter: option == "--keep" ? nil : try option.map(parseNumber) ?? 10)
+        try detach(id, reattachAfter: try rest.dropFirst().first.map(parseNumber) ?? 10)
+        return
+    case "release":
+        let identity = try monitorIdentity(rest.first)
+        try DisplayHandoff().release(identity)
+        print("Released \(identity).")
+        return
+    case "take":
+        let identity = try monitorIdentity(rest.first)
+        let minimum = try seconds(rest.dropFirst().first, default: MinimumAbsence.defaultSeconds)
+        let entry = try DisplayHandoff().released()[identity]
+        let wait = MinimumAbsence.remainingWait(since: entry?.detachedAt, now: .now, minimum: minimum)
+        if wait > 0 { print(String(format: "Waiting %.0f s so the monitor notices the change…", wait)) }
+        try DisplayHandoff().take(identity, minimumAbsence: minimum)
+        print("Took \(identity).")
+        return
+    case "released":
+        let entries = try DisplayHandoff().released()
+        if entries.isEmpty { print("Nothing released.") }
+        for (identity, entry) in entries.sorted(by: { $0.key < $1.key }) {
+            print("\(identity)  released \(Int(Date().timeIntervalSince(entry.detachedAt))) s ago  (display \(entry.platformData ?? "?"))")
+        }
+        return
+    case "reconcile":
+        let reverted = try DisplayHandoff().reconcile()
+        print(reverted.isEmpty ? "Nothing to do." : "Released again: \(reverted.joined(separator: ", "))")
+        return
+    case "cycle":
+        let identity = try monitorIdentity(rest.first)
+        guard let countText = rest.dropFirst().first else { throw ProbeError.usage("Missing <count>.") }
+        try cycle(identity, count: try parseNumber(countText),
+                  minimumAbsence: try seconds(rest.dropFirst(2).first, default: MinimumAbsence.defaultSeconds))
         return
     case "attach":
         try DisplayControl.setEnabled(try displayID(rest.first, mustBeListed: false), true)

@@ -13,10 +13,16 @@ const string Usage = """
 
       displays                      Monitors known to Windows, attached or detached
       detach <n> [seconds]          Detach a monitor, re-attach after `seconds` (default 10)
-      detach <n> --keep             Detach and leave it detached
-      attach <n>                    Re-attach a detached monitor
+      attach <n>                    Re-attach a monitor (recovery; Windows picks the layout)
 
-    <display> is the number shown by `list`; <n> is the number shown by `displays`.
+      release <monitor>             Detach and remember it (what the agent does for a non-owner)
+      take <monitor> [T]            Wait until it has been released for T s (default 25), attach
+      released                      Monitors this PC has released
+      reconcile                     Detach released monitors that came back
+      cycle <monitor> <count> [T]   Release and take repeatedly, checking each step
+
+    <display> is the number shown by `list`; <n> is the number shown by `displays`;
+    <monitor> is a number from `displays` or an identity such as SAM-E030-H1AK500000.
     Numbers are decimal or 0x-prefixed hex.
     Useful codes: 0x10 brightness (harmless test), 0x60 input source.
     """;
@@ -32,6 +38,11 @@ switch (args[0])
     case "displays":
     case "detach":
     case "attach":
+    case "release":
+    case "take":
+    case "released":
+    case "reconcile":
+    case "cycle":
         try
         {
             RunTopology(args);
@@ -161,6 +172,46 @@ void List(IReadOnlyList<PhysicalDisplay> all)
 void RunTopology(string[] arguments)
 {
     var targets = DisplayTopology.Targets();
+    var handoff = new DisplayHandoff();
+    switch (arguments[0])
+    {
+        case "release":
+            var released = MonitorIdentity(arguments, targets);
+            handoff.Release(released);
+            Console.WriteLine($"Released {released}.");
+            return;
+        case "take":
+            var taken = MonitorIdentity(arguments, targets);
+            var minimum = arguments.Length > 2 ? TimeSpan.FromSeconds(Number(arguments, 2, "[T]")) : MinimumAbsence.Default;
+            var wait = MinimumAbsence.RemainingWait(handoff.Released().GetValueOrDefault(taken)?.DetachedAt, DateTimeOffset.UtcNow, minimum);
+            if (wait > TimeSpan.Zero)
+            {
+                Console.WriteLine($"Waiting {wait.TotalSeconds:F0} s so the monitor notices the change…");
+            }
+            handoff.Take(taken, minimum);
+            Console.WriteLine($"Took {taken}.");
+            return;
+        case "released":
+            var entries = handoff.Released();
+            if (entries.Count == 0)
+            {
+                Console.WriteLine("Nothing released.");
+            }
+            foreach (var (identity, entry) in entries.OrderBy(e => e.Key, StringComparer.Ordinal))
+            {
+                Console.WriteLine($"{identity}  released {(DateTimeOffset.UtcNow - entry.DetachedAt).TotalSeconds:F0} s ago  (layout {(entry.PlatformData is null ? "none" : "saved")})");
+            }
+            return;
+        case "reconcile":
+            var reverted = handoff.Reconcile();
+            Console.WriteLine(reverted.Count == 0 ? "Nothing to do." : $"Released again: {string.Join(", ", reverted)}");
+            return;
+        case "cycle":
+            Cycle(handoff, MonitorIdentity(arguments, targets), (int)Number(arguments, 2, "<count>"),
+                arguments.Length > 3 ? TimeSpan.FromSeconds(Number(arguments, 3, "[T]")) : MinimumAbsence.Default);
+            return;
+    }
+
     if (arguments[0] == "displays")
     {
         for (var i = 0; i < targets.Count; i++)
@@ -179,27 +230,14 @@ void RunTopology(string[] arguments)
     }
     var target = targets[(int)index - 1];
 
-    var layoutFile = LayoutFile(target);
     if (arguments[0] == "attach")
     {
-        var saved = File.Exists(layoutFile) ? DisplayLayout.FromBytes(File.ReadAllBytes(layoutFile)) : null;
-        DisplayTopology.Attach(target, saved);
-        File.Delete(layoutFile);
+        DisplayTopology.Attach(target);
         Console.WriteLine("Attached.");
         return;
     }
 
     var layout = DisplayTopology.Detach(target);
-    if (arguments.Length > 2 && arguments[2] == "--keep")
-    {
-        if (layout is not null)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(layoutFile)!);
-            File.WriteAllBytes(layoutFile, layout.ToBytes());
-        }
-        Console.WriteLine($"Detached monitor {index}. Re-attach with `attach {index}`.");
-        return;
-    }
     var seconds = arguments.Length > 2 ? Number(arguments, 2, "[seconds]") : 10;
     Console.WriteLine($"Detached monitor {index}. Re-attaching in {seconds} s; Ctrl+C re-attaches now.");
     using var interrupted = new ManualResetEventSlim();
@@ -215,10 +253,54 @@ void RunTopology(string[] arguments)
     Console.WriteLine($"Re-attached monitor {index}.");
 }
 
-static string LayoutFile(DisplayTarget target)
+static string MonitorIdentity(string[] arguments, IReadOnlyList<DisplayTarget> targets)
 {
-    var key = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(target.DevicePath.ToUpperInvariant())))[..16];
-    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScreenFerry", "detached", key + ".layout");
+    if (arguments.Length <= 1)
+    {
+        throw new UsageException("Missing <monitor>.");
+    }
+    if (!uint.TryParse(arguments[1], NumberStyles.None, CultureInfo.InvariantCulture, out var index))
+    {
+        return arguments[1];
+    }
+    if (index < 1 || index > targets.Count || targets[(int)index - 1].Edid is not { } edid)
+    {
+        throw new UsageException($"No monitor {index} with a readable EDID; see `displays`.");
+    }
+    return edid.Identity;
+}
+
+static void Cycle(DisplayHandoff handoff, string identity, int count, TimeSpan minimum)
+{
+    var failures = 0;
+    for (var round = 1; round <= Math.Max(count, 1); round++)
+    {
+        var started = DateTimeOffset.UtcNow;
+        try
+        {
+            handoff.Release(identity);
+            var waited = handoff.Take(identity, minimum);
+            Console.WriteLine($"round {round}/{count}: ok (waited {waited.TotalSeconds:F0} s, total {(DateTimeOffset.UtcNow - started).TotalSeconds:F1} s)");
+        }
+        catch (Exception e) when (e is DisplayTopologyException or InvalidOperationException)
+        {
+            failures++;
+            Console.WriteLine($"round {round}/{count}: FAILED — {e.Message}");
+            try
+            {
+                handoff.Take(identity, TimeSpan.Zero);
+            }
+            catch (Exception recovery) when (recovery is DisplayTopologyException or InvalidOperationException)
+            {
+                Console.WriteLine($"  recovery failed: {recovery.Message}");
+            }
+        }
+    }
+    Console.WriteLine($"{count - failures}/{count} rounds ok");
+    if (failures > 0)
+    {
+        Environment.Exit(1);
+    }
 }
 
 PhysicalDisplay Display(string[] arguments, int position)

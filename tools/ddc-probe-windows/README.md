@@ -34,17 +34,15 @@ input of the only monitor you are looking at sends it to the other computer.
 |---|---|
 | `displays` | Monitors Windows knows about, attached or detached, numbered `<n>`. |
 | `detach <n> [seconds]` | Detach, then re-attach after `seconds` (default 10). Ctrl+C re-attaches now. |
-| `detach <n> --keep` | Detach and leave it detached. |
-| `attach <n>` | Re-attach, extending the desktop. |
+| `attach <n>` | Re-attach without a saved layout (recovery). |
+| `release <monitor>` | Detach and record it in `%LOCALAPPDATA%\ScreenFerry\detached-displays.json`, with the layout. |
+| `take <monitor> [T]` | Wait until it has been released for `T` s (default 25, ADR 0005), attach, restore the layout. |
+| `released` | What this PC has released. |
+| `reconcile` | Detach released monitors that came back. |
+| `cycle <monitor> <count> [T]` | `release` + `take` repeatedly, checking each step (Phase 2 acceptance). |
 
+`<monitor>` is a number from `displays` or an identity such as `SAM-E030-H1AK500000`.
 Uses the CCD API (`SetDisplayConfig`), like "Disconnect this display" in Settings, but works
-with any number of monitors. The layout from before the detach (positions, primary display,
-modes) is restored on attach; with `--keep` it is saved under
-`%LOCALAPPDATA%\ScreenFerry\detached\` until then. A layout saved before a reboot no longer
-applies, and Windows picks one instead. Changes are saved to Windows' display database, so a detached
-monitor stays detached after replugging; `attach` or Settings → Display brings it back.
-The last active monitor can't be detached. Unlike macOS, Windows keeps listing detached
-monitors, so their numbers stay valid.
-
-Please report results with the
-[monitor compatibility form](https://github.com/ali-caglar/ScreenFerry/issues/new?template=monitor_compatibility.yml).
+with any number of monitors, and saves to Windows' display database so a released monitor
+stays detached after replugging. A layout saved before a reboot no longer applies (adapter
+ids change); Windows then picks one. The last active monitor can't be detached.
