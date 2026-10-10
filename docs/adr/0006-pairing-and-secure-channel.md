@@ -74,6 +74,6 @@ Unpairing deletes the peer's key ID; the peer finds out the next time it connect
 - Windows shows a firewall prompt the first time the agent listens. If inbound is blocked,
   the other peer still connects out to it.
 - Windows has no managed DNS-SD API; the agent uses `DnsServiceRegister` / `DnsServiceBrowse`
-  from `dnsapi.dll` (Windows 10 1809 and later).
+  from `dnsapi.dll` (Windows 10 1903 and later).
 - On Windows 10 the certificate a client presents in TLS 1.2 is visible on the LAN. It
   reveals only the key ID, which DNS-SD already advertises.

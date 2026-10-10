@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ScreenFerry.Core\ScreenFerry.Core.csproj" />
+    <ProjectReference Include="..\ScreenFerry.Windows\ScreenFerry.Windows.csproj" />
   </ItemGroup>
 </Project>
