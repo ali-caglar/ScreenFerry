@@ -198,7 +198,10 @@ public final class Agent: ObservableObject {
             receive(message, on: link)
         case .closed:
             links.removeAll { $0 === link }
-            if link.pairing != nil { pairingPrompt = nil }
+            if link.pairing != nil {
+                pairingPrompt = nil
+                pairingResult = "Pairing with \(link.hello?.name ?? "?") was interrupted."
+            }
             publish()
         }
     }
@@ -283,14 +286,14 @@ public final class Agent: ObservableObject {
                 link.pairing = nil
                 pairingPrompt = nil
                 pairingResult = "Pairing with \(link.hello?.name ?? "?") failed: \(failure)."
-                link.connection.close(nil)
+                link.connection.finish()
             }
         }
     }
 
     private func reject(_ link: Link, _ code: ProtocolErrorCode) {
         link.send(.error(code))
-        link.connection.close(nil)
+        link.connection.finish()
     }
 
     private func tick() {

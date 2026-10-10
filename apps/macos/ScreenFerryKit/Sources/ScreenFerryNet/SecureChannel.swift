@@ -100,6 +100,13 @@ final class PeerConnection: @unchecked Sendable {
         })
     }
 
+    /// Closes once everything sent so far is out; `close` may drop it.
+    func finish() {
+        connection.send(content: nil, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { [weak self] _ in
+            self?.close(nil)
+        })
+    }
+
     func close(_ reason: String?) {
         guard let onEvent else { return }
         self.onEvent = nil
