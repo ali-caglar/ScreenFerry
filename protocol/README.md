@@ -4,9 +4,9 @@ The contract between agents. The macOS and Windows agents share no code; they sh
 
 - `schemas/` — one JSON Schema (draft 2020-12) per message type. **Normative.**
 - `fixtures/<schema>/` — golden messages. Each must validate against `schemas/<schema>.schema.json`,
-  and both agents' test suites must parse (and, from Phase 3, produce) them.
+  and both agents' test suites must parse and re-encode them.
 - `test-vectors/` — inputs and expected outputs for algorithms both agents implement
-  (e.g. `monitor-identity.json`); both test suites check them.
+  (`monitor-identity.json`, `pairing.json`); both test suites check them.
 - `scripts/validate-fixtures.mjs` — the CI check.
 
 ```sh
@@ -25,14 +25,35 @@ every file under `fixtures/` directly.
 3. Update both agents so their tests pass.
 4. Bump `protocolVersion` if the change is not backward compatible and record it below.
 
+## Transport
+
+Mutually authenticated TLS over TCP between agents found with DNS-SD `_screenferry._tcp`
+(ADR 0006). Each message is a frame: a 4-byte big-endian length, then that many bytes of
+UTF-8 JSON, at most 65 536. Receivers ignore unknown fields and messages of unknown `type`.
+
 ## Messages
 
-Only the common envelope exists so far; message types are designed in Phase 3.
+Every message carries the envelope fields:
 
 | Field | Type | Meaning |
 |---|---|---|
 | `protocolVersion` | integer ≥ 0 | Protocol version of the sender. |
-| `type` | string | Message type, e.g. `scene.activate`. |
+| `type` | string | Message type. |
+
+| `type` | When | Fields |
+|---|---|---|
+| `hello` | First message on a connection, both directions. | `keyId`, `name`, `platform`, `appVersion` |
+| `pair.commit` | Pairing step 1, responder. | `commitment` |
+| `pair.nonce` | Pairing steps 2 (initiator) and 3 (responder). | `nonce` |
+| `pair.confirm` | Pairing step 5, both, after the user compared the codes. | `accepted` |
+| `monitors` | After `hello` on a paired connection, and whenever the list changes. | `monitors[]`: `identity`, `name?`, `attached`, `inputCode?` |
+| `ping` | Every 15 s when nothing else was sent; a peer silent for 45 s is gone. | — |
+| `error` | Before closing a connection or aborting a pairing. | `code`, `message?` |
+
+Byte strings (`keyId`, `commitment`, `nonce`) are 32 bytes as 64 lowercase hex digits.
+On a connection with an unpaired key, only `hello`, `pair.*`, `ping` and `error` are
+allowed. The pairing exchange and the code computation are specified in ADR 0006 and
+pinned by `test-vectors/pairing.json`.
 
 ## Monitor identity
 
@@ -50,11 +71,9 @@ Both agents derive the same key for a physical monitor from its EDID base block
 Known issue: some vendors put the same placeholder serial in every unit (Samsung uses
 `H1AK500000`), so two identical monitors can share a key. To be resolved in Phase 3.
 
-Transport (Phase 3): JSON messages over a mutually authenticated, encrypted TCP channel
-between paired agents; discovery via DNS-SD `_screenferry._tcp`.
-
 ## Version history
 
 | `protocolVersion` | Date | Changes |
 |---|---|---|
 | 0 | 2026-10-09 | Draft envelope. No compatibility guarantees until 1. |
+| 0 | 2026-10-10 | Draft `hello`, `pair.*`, `monitors`, `ping`, `error` and framing. Becomes 1 when Phase 3 ships. |

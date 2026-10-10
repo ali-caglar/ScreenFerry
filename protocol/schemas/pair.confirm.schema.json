@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/pair.confirm.schema.json",
+  "title": "pair.confirm",
+  "description": "The user's decision after comparing the codes (step 5).",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "accepted"
+  ],
+  "properties": {
+    "type": {
+      "const": "pair.confirm"
+    },
+    "accepted": {
+      "type": "boolean"
+    }
+  },
+  "unevaluatedProperties": false
+}

@@ -65,7 +65,8 @@ owner detaches. Non-owners keep such monitors detached.
 - Agents discover each other with DNS-SD/mDNS (`_screenferry._tcp`).
 - Pairing: user confirms a short code shown on both machines. Agents exchange long-term
   keys; all later traffic is mutually authenticated and encrypted. Unpaired agents on the
-  same network are ignored. (Exact mechanism: ADR in Phase 3; no home-made crypto.)
+  same network are ignored. Mechanism (ADR 0006): pinned self-signed P-256 keys, mutual
+  TLS, and a six-digit code derived with a nonce commitment as in Bluetooth pairing.
 - Every scene change carries a monotonically increasing sequence number; the group applies
   changes one at a time and the newest wins. A short lock prevents overlapping handoffs.
 
@@ -115,7 +116,7 @@ screenferry/
 ## 5. Stack (ADR 0002)
 - macOS agent: Swift 6, SwiftUI, Swift Package Manager; minimum macOS 13.
 - Windows agent: C#, .NET 10 (LTS), WPF; tray icon via WinForms `NotifyIcon`.
-- Protocol: JSON messages over an authenticated, encrypted TCP channel; JSON Schemas
+- Protocol: JSON messages over mutually authenticated TLS (ADR 0006); JSON Schemas
   in `protocol/` are normative.
 - Why two native codebases instead of one cross-platform one: nearly all hard work is
   platform API calls; native code keeps those simple and debuggable. The shared contract is

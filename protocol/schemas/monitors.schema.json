@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/monitors.schema.json",
+  "title": "monitors",
+  "description": "The external monitors the sender sees. Sent after hello on a paired connection and whenever the list changes.",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "monitors"
+  ],
+  "properties": {
+    "type": {
+      "const": "monitors"
+    },
+    "monitors": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "identity",
+          "attached"
+        ],
+        "properties": {
+          "identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Monitor identity (see README)."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "EDID display name, if any."
+          },
+          "attached": {
+            "type": "boolean",
+            "description": "Part of the sender's desktop right now."
+          },
+          "inputCode": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535,
+            "description": "The sender's learned VCP 0x60 value for this monitor."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

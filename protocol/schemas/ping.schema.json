@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/ping.schema.json",
+  "title": "ping",
+  "description": "Keepalive, sent every 15 s when nothing else was sent.",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type"
+  ],
+  "properties": {
+    "type": {
+      "const": "ping"
+    }
+  },
+  "unevaluatedProperties": false
+}

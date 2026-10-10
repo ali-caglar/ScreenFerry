@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/error.schema.json",
+  "title": "error",
+  "description": "Sent before closing a connection or aborting a pairing.",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "code"
+  ],
+  "properties": {
+    "type": {
+      "const": "error"
+    },
+    "code": {
+      "enum": [
+        "notPaired",
+        "pairingFailed",
+        "protocolVersion",
+        "badMessage"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "unevaluatedProperties": false
+}

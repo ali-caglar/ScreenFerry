@@ -1,0 +1,48 @@
+{
+  "keyIds": [
+    {
+      "description": "private key 1 (the generator)",
+      "publicKey": "046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+      "keyId": "5cd252fb0ce8932436faf8ccd1040981b89ee4ad6b9fe9e2a2b7e71aacb27cd3"
+    },
+    {
+      "description": "private key 2",
+      "publicKey": "047cf27b188d034f7e8a52380304b51ac3c08969e277f21b35a60b48fc4766997807775510db8ed040293d9ac69f7430dbba7dade63ce982299e04b79d227873d1",
+      "keyId": "dc0ce633dbcc913dafafa4b89ac44d8ce683fdfc3f60c8bdf21213b9f2b534ba"
+    },
+    {
+      "description": "private key 0x5cf1\u2026",
+      "publicKey": "04dec57ae95f0d52121885f9febca27a363445f17eb1ccaba5b449a3c8a5a46aff9397676de9a97fbe4bdfadd8c81f538c5bf070e51f2395001e73509be51a520a",
+      "keyId": "aa54a39f92fe55b4b3f7fb3825b51d859474f19041b991367b76bc31f8059c6a"
+    }
+  ],
+  "pairing": [
+    {
+      "description": "keys 1 and 2, counting nonces",
+      "initiatorKeyId": "5cd252fb0ce8932436faf8ccd1040981b89ee4ad6b9fe9e2a2b7e71aacb27cd3",
+      "responderKeyId": "dc0ce633dbcc913dafafa4b89ac44d8ce683fdfc3f60c8bdf21213b9f2b534ba",
+      "initiatorNonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "responderNonce": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "commitment": "6bb10fb7a0ea3c81d20f53383e1b766d3f0e2099781f9c144d736a494f463bb2",
+      "code": "595955"
+    },
+    {
+      "description": "roles swapped",
+      "initiatorKeyId": "dc0ce633dbcc913dafafa4b89ac44d8ce683fdfc3f60c8bdf21213b9f2b534ba",
+      "responderKeyId": "5cd252fb0ce8932436faf8ccd1040981b89ee4ad6b9fe9e2a2b7e71aacb27cd3",
+      "initiatorNonce": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "responderNonce": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+      "commitment": "91342e43ba1bea4b3ab468f71adbe4d0b232d5bd28bb8fb759cabede4beaa2ce",
+      "code": "727682"
+    },
+    {
+      "description": "keys 3 and 1, zero and 0xff nonces",
+      "initiatorKeyId": "aa54a39f92fe55b4b3f7fb3825b51d859474f19041b991367b76bc31f8059c6a",
+      "responderKeyId": "5cd252fb0ce8932436faf8ccd1040981b89ee4ad6b9fe9e2a2b7e71aacb27cd3",
+      "initiatorNonce": "0000000000000000000000000000000000000000000000000000000000000000",
+      "responderNonce": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "commitment": "daca0d3488b7ce7fb3ad211a28fc05b12cde99229cb279dcdd8658089ee6f310",
+      "code": "998840"
+    }
+  ]
+}

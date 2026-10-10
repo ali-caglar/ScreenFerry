@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/pair.commit.schema.json",
+  "title": "pair.commit",
+  "description": "Responder's commitment to its nonce (pairing step 1).",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "commitment"
+  ],
+  "properties": {
+    "type": {
+      "const": "pair.commit"
+    },
+    "commitment": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "HMAC-SHA256(key: N_R, \"ScreenFerry pair commit v1\" ‖ PK_R ‖ PK_I)."
+    }
+  },
+  "unevaluatedProperties": false
+}
