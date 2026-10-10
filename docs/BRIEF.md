@@ -57,6 +57,10 @@ accept DDC from the active input. Therefore the **current owner** performs the s
 
 If step 1 fails, nothing else happens and the user is told why.
 
+Monitors without DDC/CI but with an "auto source switch" setting use the reverse order
+(ADR 0005): the new owner attaches first, the monitor follows the new signal, then the old
+owner detaches. Non-owners keep such monitors detached.
+
 ### 3.4 Groups, pairing and conflicts
 - Agents discover each other with DNS-SD/mDNS (`_screenferry._tcp`).
 - Pairing: user confirms a short code shown on both machines. Agents exchange long-term
@@ -240,9 +244,10 @@ Still open:
 ## 10. Risks
 
 - Monitors with weak or missing DDC/CI support (notably some Samsung models) → Phase 1 gate,
-  public compatibility list.
+  public compatibility list, auto source switching (ADR 0005). Confirmed: the maintainer's
+  G8 has no DDC/CI.
 - macOS private display APIs can break on OS updates → isolation, feature checks, fallback
-  ("switch input only, don't detach").
+  ("switch input only, don't detach" — `ddc` monitors only; `autoSource` monitors need detach).
 - Docks, KVMs and some USB-C adapters block DDC → document; detect and warn.
 - Unsigned builds trigger Gatekeeper/SmartScreen warnings → Phase 5 signing.
 
