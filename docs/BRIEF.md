@@ -103,7 +103,6 @@ screenferry/
 │   ├── ISSUE_TEMPLATE/
 │   ├── PULL_REQUEST_TEMPLATE.md
 │   ├── CODEOWNERS
-│   ├── dco.yml
 │   └── dependabot.yml
 ├── CLAUDE.md  README.md  LICENSE  CONTRIBUTING.md  CODE_OF_CONDUCT.md  SECURITY.md
 ├── .editorconfig  .gitattributes  .gitignore
