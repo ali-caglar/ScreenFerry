@@ -5,19 +5,22 @@ import Foundation
 /// Resolved at runtime so a macOS that drops it disables detach instead of crashing at launch.
 private struct DisplayEnableAPI: Sendable {
     typealias ConfigureEnabled = @convention(c) (CGDisplayConfigRef?, CGDirectDisplayID, Bool) -> CGError
+    typealias GetDisplayList = @convention(c) (UInt32, UnsafeMutablePointer<CGDirectDisplayID>?, UnsafeMutablePointer<UInt32>?) -> CGError
 
     let configureEnabled: ConfigureEnabled
+    /// Unlike the public lists, this one includes detached displays.
+    let allDisplays: GetDisplayList?
 
     static let shared: DisplayEnableAPI? = {
-        for (path, symbol) in [
-            ("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", "SLSConfigureDisplayEnabled"),
-            ("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", "CGSConfigureDisplayEnabled"),
-        ] {
-            if let handle = dlopen(path, RTLD_NOW), let pointer = dlsym(handle, symbol) {
-                return DisplayEnableAPI(configureEnabled: unsafeBitCast(pointer, to: ConfigureEnabled.self))
-            }
-        }
-        return nil
+        let skyLight = dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW)
+        let coreGraphics = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_NOW)
+        guard let configure = dlsym(skyLight, "SLSConfigureDisplayEnabled") ?? dlsym(coreGraphics, "CGSConfigureDisplayEnabled")
+        else { return nil }
+        let list = dlsym(skyLight, "SLSGetDisplayList")
+        return DisplayEnableAPI(
+            configureEnabled: unsafeBitCast(configure, to: ConfigureEnabled.self),
+            allDisplays: list.map { unsafeBitCast($0, to: GetDisplayList.self) }
+        )
     }()
 }
 
@@ -58,8 +61,19 @@ public enum DisplayControl {
 
     /// Connected displays macOS reports. Detached displays are not included.
     public static func displays() -> [DisplayInfo] {
+        info(for: list(CGGetOnlineDisplayList))
+    }
+
+    /// Every display id the window server knows, including detached ones.
+    /// One monitor can appear under several ids after its link drops and comes back.
+    public static func allDisplays() -> [DisplayInfo] {
+        guard let all = DisplayEnableAPI.shared?.allDisplays else { return displays() }
+        return info(for: list(all))
+    }
+
+    private static func info(for ids: [CGDirectDisplayID]) -> [DisplayInfo] {
         let active = Set(list(CGGetActiveDisplayList))
-        return list(CGGetOnlineDisplayList).map { id in
+        return ids.map { id in
             DisplayInfo(
                 id: id,
                 vendor: CGDisplayVendorNumber(id),
@@ -74,8 +88,28 @@ public enum DisplayControl {
     }
 
     /// Detaches (`false`) or re-attaches (`true`) a display for this login session.
-    /// macOS moves windows off a detached display to the remaining ones.
-    public static func setEnabled(_ id: CGDirectDisplayID, _ enabled: Bool) throws(DisplayControlError) {
+    /// macOS moves windows off a detached display to the remaining ones. Retries briefly,
+    /// since enabling fails while the display's link is retraining.
+    public static func setEnabled(
+        _ id: CGDirectDisplayID,
+        _ enabled: Bool,
+        attempts: Int = 5,
+        retryDelay: Duration = .seconds(1)
+    ) throws(DisplayControlError) {
+        var lastError = DisplayControlError.unavailable
+        for attempt in 0..<max(attempts, 1) {
+            if attempt > 0 { Thread.sleep(forTimeInterval: Double(retryDelay.components.seconds)) }
+            do {
+                try configure(id, enabled)
+                return
+            } catch .failed(let operation, let error) {
+                lastError = .failed(operation, error)
+            }
+        }
+        throw lastError
+    }
+
+    private static func configure(_ id: CGDirectDisplayID, _ enabled: Bool) throws(DisplayControlError) {
         guard let api = DisplayEnableAPI.shared else { throw .unavailable }
         if !enabled {
             // A detached display disappears from the online list, so only disabling can be checked.

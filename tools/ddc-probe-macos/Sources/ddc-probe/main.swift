@@ -105,11 +105,13 @@ func edidIdentity(for display: DisplayInfo, among externals: [ExternalDisplay]) 
 
 func listDisplays() {
     let externals = (try? ExternalDisplay.all()) ?? []
-    for display in DisplayControl.displays() {
-        var tags = [display.isActive ? "attached" : "inactive"]
+    let online = Set(DisplayControl.displays().map(\.id))
+    for display in DisplayControl.allDisplays() {
+        var tags = [display.isActive ? "attached" : online.contains(display.id) ? "inactive" : "detached"]
         if display.isBuiltin { tags.append("built-in") }
         if display.isMain { tags.append("main") }
-        let identity = display.isBuiltin ? "" : edidIdentity(for: display, among: externals) ?? "identity unknown"
+        let identity = display.isBuiltin ? "" : edidIdentity(for: display, among: externals)
+            ?? "\(String(format: "vendor 0x%04X model 0x%04X", display.vendor, display.model))"
         let size = display.isActive ? " \(Int(display.bounds.width))x\(Int(display.bounds.height))" : ""
         print("id \(display.id): \(tags.joined(separator: ", "))\(size)  \(identity)")
     }
