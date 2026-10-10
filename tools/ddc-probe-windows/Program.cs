@@ -19,7 +19,7 @@ const string Usage = """
       take <monitor> [T]            Wait until it has been released for T s (default 25), attach
       released                      Monitors this PC has released
       reconcile                     Detach released monitors that came back
-      cycle <monitor> <count> [T]   Release and take repeatedly, checking each step
+      cycle <monitor> <count> [T] [hold]  Release and take repeatedly, holding hold s (default 10) after each take
 
     <display> is the number shown by `list`; <n> is the number shown by `displays`;
     <monitor> is a number from `displays` or an identity such as SAM-E030-H1AK500000.
@@ -208,7 +208,8 @@ void RunTopology(string[] arguments)
             return;
         case "cycle":
             Cycle(handoff, MonitorIdentity(arguments, targets), (int)Number(arguments, 2, "<count>"),
-                arguments.Length > 3 ? TimeSpan.FromSeconds(Number(arguments, 3, "[T]")) : MinimumAbsence.Default);
+                arguments.Length > 3 ? TimeSpan.FromSeconds(Number(arguments, 3, "[T]")) : MinimumAbsence.Default,
+                TimeSpan.FromSeconds(arguments.Length > 4 ? Number(arguments, 4, "[hold]") : 10));
             return;
     }
 
@@ -270,7 +271,7 @@ static string MonitorIdentity(string[] arguments, IReadOnlyList<DisplayTarget> t
     return edid.Identity;
 }
 
-static void Cycle(DisplayHandoff handoff, string identity, int count, TimeSpan minimum)
+static void Cycle(DisplayHandoff handoff, string identity, int count, TimeSpan minimum, TimeSpan hold)
 {
     var failures = 0;
     for (var round = 1; round <= Math.Max(count, 1); round++)
@@ -280,7 +281,9 @@ static void Cycle(DisplayHandoff handoff, string identity, int count, TimeSpan m
         {
             handoff.Release(identity);
             var waited = handoff.Take(identity, minimum);
-            Console.WriteLine($"round {round}/{count}: ok (waited {waited.TotalSeconds:F0} s, total {(DateTimeOffset.UtcNow - started).TotalSeconds:F1} s)");
+            Console.WriteLine($"round {round}/{count}: attached (waited {waited.TotalSeconds:F0} s, total {(DateTimeOffset.UtcNow - started).TotalSeconds:F1} s); check the monitor shows it");
+            // The monitor needs a few seconds to lock on; releasing at once hides whether it did.
+            Thread.Sleep(hold);
         }
         catch (Exception e) when (e is DisplayTopologyException or InvalidOperationException)
         {
@@ -296,7 +299,7 @@ static void Cycle(DisplayHandoff handoff, string identity, int count, TimeSpan m
             }
         }
     }
-    Console.WriteLine($"{count - failures}/{count} rounds ok");
+    Console.WriteLine($"{count - failures}/{count} rounds attached");
     if (failures > 0)
     {
         Environment.Exit(1);

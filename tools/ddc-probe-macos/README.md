@@ -34,7 +34,7 @@ input of the only monitor you are looking at sends it to the other computer.
 | `take <monitor> [T]` | Wait until it has been released for `T` s (default 25, ADR 0005), attach, verify. |
 | `released` | What this Mac has released. |
 | `reconcile` | Detach released monitors that came back, e.g. after logging in again. |
-| `cycle <monitor> <count> [T]` | `release` + `take` repeatedly, checking each step (Phase 2 acceptance). |
+| `cycle <monitor> <count> [T] [hold]` | `release` + `take` repeatedly, holding `hold` s (default 10) after each take so you can see whether the monitor showed it. "attached" means the OS attached it; only your eyes confirm the monitor. |
 
 `<monitor>` is an id from `displays` or an identity such as `SAM-E030-H1AK500000`.
 Uses the private SkyLight call `SLSConfigureDisplayEnabled` for the login session only:

@@ -21,7 +21,7 @@ let usageText = """
       take <monitor> [T]            Wait until it has been released for T s (default 25), attach
       released                      Monitors this Mac has released
       reconcile                     Detach released monitors that came back (e.g. after login)
-      cycle <monitor> <count> [T]   Release and take repeatedly, checking each step
+      cycle <monitor> <count> [T] [hold]  Release and take repeatedly, holding hold s (default 10) after each take
 
     <display> is the number shown by `list`; <id> is the id shown by `displays`;
     <monitor> is an id from `displays` or an identity such as SAM-E030-H1AK500000.
@@ -119,7 +119,7 @@ func seconds(_ argument: String?, default value: TimeInterval) throws -> TimeInt
     try argument.map { TimeInterval(try parseNumber($0)) } ?? value
 }
 
-func cycle(_ identity: String, count: Int, minimumAbsence: TimeInterval) throws {
+func cycle(_ identity: String, count: Int, minimumAbsence: TimeInterval, hold: TimeInterval) throws {
     let handoff = DisplayHandoff()
     var failures = 0
     for round in 1...max(count, 1) {
@@ -127,14 +127,16 @@ func cycle(_ identity: String, count: Int, minimumAbsence: TimeInterval) throws 
         do {
             try handoff.release(identity)
             let waited = try handoff.take(identity, minimumAbsence: minimumAbsence)
-            print(String(format: "round %d/%d: ok (waited %.0f s, total %.1f s)", round, count, waited, Date().timeIntervalSince(started)))
+            print(String(format: "round %d/%d: attached (waited %.0f s, total %.1f s); check the monitor shows it", round, count, waited, Date().timeIntervalSince(started)))
+            // The monitor needs a few seconds to lock on; releasing at once hides whether it did.
+            Thread.sleep(forTimeInterval: hold)
         } catch {
             failures += 1
             print("round \(round)/\(count): FAILED — \(error)")
             _ = try? handoff.take(identity, minimumAbsence: 0)
         }
     }
-    print("\(count - failures)/\(count) rounds ok")
+    print("\(count - failures)/\(count) rounds attached")
     if failures > 0 { exit(1) }
 }
 
@@ -220,7 +222,8 @@ func run(_ arguments: [String]) throws {
         let identity = try monitorIdentity(rest.first)
         guard let countText = rest.dropFirst().first else { throw ProbeError.usage("Missing <count>.") }
         try cycle(identity, count: try parseNumber(countText),
-                  minimumAbsence: try seconds(rest.dropFirst(2).first, default: MinimumAbsence.defaultSeconds))
+                  minimumAbsence: try seconds(rest.dropFirst(2).first, default: MinimumAbsence.defaultSeconds),
+                  hold: try seconds(rest.dropFirst(3).first, default: 10))
         return
     case "attach":
         try DisplayControl.setEnabled(try displayID(rest.first, mustBeListed: false), true)
