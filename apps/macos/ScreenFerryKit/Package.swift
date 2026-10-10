@@ -12,7 +12,7 @@ let package = Package(
     targets: [
         .target(name: "ScreenFerryKit"),
         .target(name: "ScreenFerryDDC", dependencies: ["ScreenFerryKit"]),
-        .target(name: "ScreenFerryDisplays"),
+        .target(name: "ScreenFerryDisplays", dependencies: ["ScreenFerryKit", "ScreenFerryDDC"]),
         .testTarget(name: "ScreenFerryKitTests", dependencies: ["ScreenFerryKit"]),
     ]
 )

@@ -27,25 +27,17 @@ input of the only monitor you are looking at sends it to the other computer.
 
 | Command | What it does |
 |---|---|
-| `displays` | Displays macOS currently has, with their CoreGraphics `<id>` and identity. |
+| `displays` | Displays macOS knows, with their CoreGraphics `<id>`; detached ones included. |
 | `detach <id> [seconds]` | Detach, then re-attach after `seconds` (default 10). Ctrl+C re-attaches now. |
-| `detach <id> --keep` | Detach and leave it detached. |
-| `attach <id>` | Re-attach. |
+| `attach <id>` | Re-attach by id (recovery). |
+| `release <monitor>` | Detach and record it in `~/Library/Application Support/ScreenFerry/detached-displays.json`. |
+| `take <monitor> [T]` | Wait until it has been released for `T` s (default 25, ADR 0005), attach, verify. |
+| `released` | What this Mac has released. |
+| `reconcile` | Detach released monitors that came back, e.g. after logging in again. |
+| `cycle <monitor> <count> [T] [hold]` | `release` + `take` repeatedly, holding `hold` s (default 10) after each take so you can see whether the monitor showed it. "attached" means the OS attached it; only your eyes confirm the monitor. |
 
+`<monitor>` is an id from `displays` or an identity such as `SAM-E030-H1AK500000`.
 Uses the private SkyLight call `SLSConfigureDisplayEnabled` for the login session only:
-logging out restores every display. The built-in display is never touched, and the last
-active display can't be detached. A detached display vanishes from `displays`, so note its
-id before detaching.
-
-## Reading the results
-
-- `IOAVServiceWriteI2C failed (IOReturn 0xe0114000)` — nothing answered on the I2C bus. Common
-  causes: DDC/CI turned off in the monitor menu; a dock, hub, KVM or adapter that doesn't pass
-  DDC; the built-in HDMI port of Apple Silicon MacBook Pros / Mac minis (use USB-C to
-  DisplayPort or USB-C to HDMI instead).
-- `IOAVServiceReadI2C failed` with a successful write — the monitor (or something in between)
-  accepts commands but doesn't answer. Writes may still work: try `set <n> 0x10 30`.
-- `reports VCP 0x.. as unsupported` — DDC works; the monitor doesn't implement that code.
-
-Please report results with the
-[monitor compatibility form](https://github.com/ali-caglar/ScreenFerry/issues/new?template=monitor_compatibility.yml).
+logging out restores every display, which is what `reconcile` is for. The built-in display
+is never touched, and the last active display can't be detached. One monitor can show up
+under several ids; `take` tries them all and checks the monitor by identity.

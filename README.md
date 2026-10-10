@@ -11,8 +11,9 @@ each monitor's input over **DDC/CI** and detaches it from the computer that no l
 so windows and the cursor don't vanish onto a screen nobody can see. Then the computer that
 now owns the monitor attaches it.
 
-> **Status: early development.** Nothing is usable yet. We are bootstrapping the repository
-> (Phase 0); the next step is proving DDC input switching works on real hardware (Phase 1).
+> **Status: early development.** Nothing is usable yet. Input switching and detaching
+> monitors work from command-line probes (Phases 1–2); the agents that talk to each other
+> come next (Phase 3).
 > See the [roadmap](docs/BRIEF.md#6-roadmap).
 
 ## Planned for v1
