@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using Microsoft.Win32;
 using ScreenFerry.Core;
 using static ScreenFerry.Windows.NativeMethods;
 
@@ -17,7 +16,7 @@ public sealed unsafe class PhysicalDisplay : IDisposable
         _handle = handle;
         Description = description;
         DeviceName = deviceName;
-        RawEdid = deviceInterface is null ? [] : ReadEdid(deviceInterface);
+        RawEdid = deviceInterface is null ? [] : MonitorRegistry.ReadEdid(deviceInterface);
         Edid = Edid.TryParse(RawEdid, out var edid) ? edid : null;
     }
 
@@ -154,18 +153,5 @@ public sealed unsafe class PhysicalDisplay : IDisposable
             device = new DisplayDevice { Size = (uint)sizeof(DisplayDevice) };
         }
         return result;
-    }
-
-    /// <summary>Reads EDID for an interface path like <c>\\?\DISPLAY#SAM7400#5&amp;1a2b&amp;0&amp;UID256#{guid}</c>.</summary>
-    private static byte[] ReadEdid(string deviceInterface)
-    {
-        var parts = deviceInterface.Split('#');
-        if (parts.Length < 3)
-        {
-            return [];
-        }
-        var keyPath = $@"SYSTEM\CurrentControlSet\Enum\DISPLAY\{parts[1]}\{parts[2]}\Device Parameters";
-        using var key = Registry.LocalMachine.OpenSubKey(keyPath);
-        return key?.GetValue("EDID") as byte[] ?? [];
     }
 }

@@ -28,5 +28,20 @@ as `ddc-probe-macos` for the same monitor.
 `<n>` is the number from `list`. Try brightness (`0x10`) before input (`0x60`): switching the
 input of the only monitor you are looking at sends it to the other computer.
 
+### Detach and attach (Phase 2)
+
+| Command | What it does |
+|---|---|
+| `displays` | Monitors Windows knows about, attached or detached, numbered `<n>`. |
+| `detach <n> [seconds]` | Detach, then re-attach after `seconds` (default 10). Ctrl+C re-attaches now. |
+| `detach <n> --keep` | Detach and leave it detached. |
+| `attach <n>` | Re-attach, extending the desktop. |
+
+Uses the CCD API (`SetDisplayConfig`), like "Disconnect this display" in Settings, but works
+with any number of monitors. Changes are saved to Windows' display database, so a detached
+monitor stays detached after replugging; `attach` or Settings → Display brings it back.
+The last active monitor can't be detached. Unlike macOS, Windows keeps listing detached
+monitors, so their numbers stay valid.
+
 Please report results with the
 [monitor compatibility form](https://github.com/ali-caglar/ScreenFerry/issues/new?template=monitor_compatibility.yml).
