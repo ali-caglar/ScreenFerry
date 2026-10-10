@@ -4,8 +4,9 @@ C# on .NET 10, WPF, tray icon via `System.Windows.Forms.NotifyIcon` (ADR 0002).
 
 ## Layout
 
-- `src/ScreenFerry.Core/` — `net10.0`, no Windows dependency: protocol models and logic.
-  Builds and tests on any OS.
+- `src/ScreenFerry.Core/` — `net10.0`, no Windows dependency: protocol models, pairing, and
+  the agent's networking (`AgentIdentity`, `PeerConnection` over `SslStream`, `Agent`).
+  Builds and tests on any OS; DNS-SD plugs in through `IPeerDiscovery`.
 - `src/ScreenFerry.App/` — `net10.0-windows` WPF app (`ScreenFerry.exe`). `UseWindowsForms`
   is on only for `NotifyIcon`; the implicit `System.Windows.Forms` using is removed to avoid
   clashes with WPF types, so alias it (`using Forms = System.Windows.Forms;`).
