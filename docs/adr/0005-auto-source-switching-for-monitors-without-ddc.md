@@ -52,8 +52,10 @@ the monitor's setting is on.
   only applies to `ddc` monitors.
 - Without DDC the agents cannot confirm the switch. If the monitor didn't switch (setting
   off), A's detach leaves it showing "no signal"; the UI must make undoing that easy.
-- Still to verify in Phase 2: that a macOS software attach (SkyLight/CoreGraphics) counts
-  as a new signal for the monitor, as the Windows one does.
+- Verified 2026-10-10: a macOS software re-attach (`SLSConfigureDisplayEnabled`) also counts
+  as a new signal; the G8 switched from the PC to the Mac.
+- macOS drops a detached display from every display list, so the agent must persist the
+  `CGDirectDisplayID`s it detached to be able to re-attach them.
 - The settle delay and switch method become part of the protocol (Phase 3).
 
 ## Amendments

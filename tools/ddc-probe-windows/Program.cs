@@ -11,7 +11,13 @@ const string Usage = """
       get  <display> <vcp>          Read a VCP code, e.g. `get 1 0x60`
       set  <display> <vcp> <value>  Write a VCP code, e.g. `set 1 0x10 50`
 
-    <display> is the number shown by `list`. Numbers are decimal or 0x-prefixed hex.
+      displays                      Monitors known to Windows, attached or detached
+      detach <n> [seconds]          Detach a monitor, re-attach after `seconds` (default 10)
+      detach <n> --keep             Detach and leave it detached
+      attach <n>                    Re-attach a detached monitor
+
+    <display> is the number shown by `list`; <n> is the number shown by `displays`.
+    Numbers are decimal or 0x-prefixed hex.
     Useful codes: 0x10 brightness (harmless test), 0x60 input source.
     """;
 
@@ -19,6 +25,28 @@ if (args.Length == 0 || args[0] is "help" or "-h" or "--help" or "/?")
 {
     Console.WriteLine(Usage);
     return 0;
+}
+
+switch (args[0])
+{
+    case "displays":
+    case "detach":
+    case "attach":
+        try
+        {
+            RunTopology(args);
+            return 0;
+        }
+        catch (UsageException e)
+        {
+            Console.Error.WriteLine($"{e.Message}\n\n{Usage}");
+            return 2;
+        }
+        catch (Exception e) when (e is DisplayTopologyException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"error: {e.Message}");
+            return 1;
+        }
 }
 
 var displays = PhysicalDisplay.All();
@@ -128,6 +156,69 @@ void List(IReadOnlyList<PhysicalDisplay> all)
             Console.WriteLine($"   {label,-11} {result}");
         }
     }
+}
+
+void RunTopology(string[] arguments)
+{
+    var targets = DisplayTopology.Targets();
+    if (arguments[0] == "displays")
+    {
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var t = targets[i];
+            var name = t.Edid?.Name ?? (t.FriendlyName.Length > 0 ? t.FriendlyName : "Unknown monitor");
+            Console.WriteLine($"{i + 1}. {(t.IsActive ? "attached" : "DETACHED")}  {name}  {t.Edid?.Identity ?? "identity unknown"}");
+        }
+        return;
+    }
+
+    var index = Number(arguments, 1, "<n>");
+    if (index < 1 || index > targets.Count)
+    {
+        throw new UsageException($"No monitor {index}; `displays` shows {targets.Count}.");
+    }
+    var target = targets[(int)index - 1];
+
+    var layoutFile = LayoutFile(target);
+    if (arguments[0] == "attach")
+    {
+        var saved = File.Exists(layoutFile) ? DisplayLayout.FromBytes(File.ReadAllBytes(layoutFile)) : null;
+        DisplayTopology.Attach(target, saved);
+        File.Delete(layoutFile);
+        Console.WriteLine("Attached.");
+        return;
+    }
+
+    var layout = DisplayTopology.Detach(target);
+    if (arguments.Length > 2 && arguments[2] == "--keep")
+    {
+        if (layout is not null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(layoutFile)!);
+            File.WriteAllBytes(layoutFile, layout.ToBytes());
+        }
+        Console.WriteLine($"Detached monitor {index}. Re-attach with `attach {index}`.");
+        return;
+    }
+    var seconds = arguments.Length > 2 ? Number(arguments, 2, "[seconds]") : 10;
+    Console.WriteLine($"Detached monitor {index}. Re-attaching in {seconds} s; Ctrl+C re-attaches now.");
+    using var interrupted = new ManualResetEventSlim();
+    ConsoleCancelEventHandler onCancel = (_, e) =>
+    {
+        e.Cancel = true;
+        interrupted.Set();
+    };
+    Console.CancelKeyPress += onCancel;
+    interrupted.Wait(TimeSpan.FromSeconds(seconds));
+    Console.CancelKeyPress -= onCancel;
+    DisplayTopology.Attach(target, layout);
+    Console.WriteLine($"Re-attached monitor {index}.");
+}
+
+static string LayoutFile(DisplayTarget target)
+{
+    var key = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(target.DevicePath.ToUpperInvariant())))[..16];
+    return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ScreenFerry", "detached", key + ".layout");
 }
 
 PhysicalDisplay Display(string[] arguments, int position)
