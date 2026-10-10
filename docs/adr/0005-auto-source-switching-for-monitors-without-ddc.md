@@ -55,3 +55,23 @@ the monitor's setting is on.
 - Still to verify in Phase 2: that a macOS software attach (SkyLight/CoreGraphics) counts
   as a new signal for the monitor, as the Windows one does.
 - The settle delay and switch method become part of the protocol (Phase 3).
+
+## Amendments
+
+- 2026-10-10, **minimum absence.** The G8 only follows a source that has been gone for a
+  while. Re-attaching after 5 s or 10 s did not switch it; after 20 s, 30 s and longer it
+  did, from both Windows and macOS. Presumably it polls inactive inputs every ~10 s and
+  misses a source that disappears and returns between polls. Rule: each `autoSource`
+  monitor has a minimum absence `T` (default 25 s, stored per monitor). If the new owner
+  detached the monitor less than `T` ago, its agent waits out the rest before attaching
+  and the UI shows the handoff as in progress. The Phase 4 goal of 20 handoffs in a row
+  is therefore paced by `T` for such monitors.
+- 2026-10-10, **macOS details.** After a detach the HDMI link stays up and keeps
+  retraining; enabling the display during a retrain fails with `kCGErrorFailure`, so
+  attach retries for a few seconds. `SLSGetDisplayList` lists detached displays, and one
+  monitor can appear under several `CGDirectDisplayID`s after its link drops, so displays
+  are matched by EDID identity, not by id alone.
+- 2026-10-10, **possible switch feedback (unconfirmed).** While the G8 showed the Mac,
+  the Mac's HDMI link was steady; while it showed the PC (Mac detached), the link
+  dropped about every 10 s. If that holds, an agent could tell whether an `autoSource`
+  monitor is on its input. To be tested before relying on it.
