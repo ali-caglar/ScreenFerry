@@ -1,3 +1,0 @@
-# Lets the repository owner's verified commits (including release-please PRs made with their token) skip sign-off.
-require:
-  members: false
