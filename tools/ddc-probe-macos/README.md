@@ -23,6 +23,20 @@ tools/ddc-probe-macos/.build/release/ddc-probe list
 `<n>` is the number from `list`. Try brightness (`0x10`) before input (`0x60`): switching the
 input of the only monitor you are looking at sends it to the other computer.
 
+### Detach and attach (Phase 2)
+
+| Command | What it does |
+|---|---|
+| `displays` | Displays macOS currently has, with their CoreGraphics `<id>` and identity. |
+| `detach <id> [seconds]` | Detach, then re-attach after `seconds` (default 10). Ctrl+C re-attaches now. |
+| `detach <id> --keep` | Detach and leave it detached. |
+| `attach <id>` | Re-attach. |
+
+Uses the private SkyLight call `SLSConfigureDisplayEnabled` for the login session only:
+logging out restores every display. The built-in display is never touched, and the last
+active display can't be detached. A detached display vanishes from `displays`, so note its
+id before detaching.
+
 ## Reading the results
 
 - `IOAVServiceWriteI2C failed (IOReturn 0xe0114000)` — nothing answered on the I2C bus. Common

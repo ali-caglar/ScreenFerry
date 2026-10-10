@@ -13,6 +13,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ScreenFerryKit", package: "ScreenFerryKit"),
                 .product(name: "ScreenFerryDDC", package: "ScreenFerryKit"),
+                .product(name: "ScreenFerryDisplays", package: "ScreenFerryKit"),
             ]
         ),
     ]

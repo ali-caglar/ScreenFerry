@@ -1,5 +1,7 @@
+import CoreGraphics
 import Foundation
 import ScreenFerryDDC
+import ScreenFerryDisplays
 import ScreenFerryKit
 
 let usageText = """
@@ -11,7 +13,13 @@ let usageText = """
       get  <display> <vcp>          Read a VCP code, e.g. `get 1 0x60`
       set  <display> <vcp> <value>  Write a VCP code, e.g. `set 1 0x10 50`
 
-    <display> is the number shown by `list`. Numbers are decimal or 0x-prefixed hex.
+      displays                      Displays known to macOS, with their CoreGraphics id
+      detach <id> [seconds]         Detach a display, re-attach after `seconds` (default 10)
+      detach <id> --keep            Detach and leave it detached
+      attach <id>                   Re-attach a detached display
+
+    <display> is the number shown by `list`; <id> is the id shown by `displays`.
+    Numbers are decimal or 0x-prefixed hex.
     Useful codes: 0x10 brightness (harmless test), 0x60 input source.
     """
 
@@ -87,14 +95,79 @@ func list(_ displays: [ExternalDisplay]) {
     }
 }
 
+func edidIdentity(for display: DisplayInfo, among externals: [ExternalDisplay]) -> String? {
+    externals.compactMap(\.edid).first { edid in
+        let vendor = UInt32(edid.baseBlock[8]) << 8 | UInt32(edid.baseBlock[9])
+        return vendor == display.vendor && UInt32(edid.productCode) == display.model
+            && (display.serial == 0 || edid.serialNumber == display.serial)
+    }?.identity
+}
+
+func listDisplays() {
+    let externals = (try? ExternalDisplay.all()) ?? []
+    for display in DisplayControl.displays() {
+        var tags = [display.isActive ? "attached" : "inactive"]
+        if display.isBuiltin { tags.append("built-in") }
+        if display.isMain { tags.append("main") }
+        let identity = display.isBuiltin ? "" : edidIdentity(for: display, among: externals) ?? "identity unknown"
+        let size = display.isActive ? " \(Int(display.bounds.width))x\(Int(display.bounds.height))" : ""
+        print("id \(display.id): \(tags.joined(separator: ", "))\(size)  \(identity)")
+    }
+}
+
+func displayID(_ argument: String?, mustBeListed: Bool = true) throws -> CGDirectDisplayID {
+    guard let argument else { throw ProbeError.usage("Missing <id>.") }
+    let id = CGDirectDisplayID(try parseNumber(argument))
+    guard CGDisplayIsBuiltin(id) == 0 else { throw ProbeError.usage("Refusing to detach or attach the built-in display.") }
+    if mustBeListed, !DisplayControl.displays().contains(where: { $0.id == id }) {
+        throw ProbeError.usage("No display with id \(id); see `displays`.")
+    }
+    return id
+}
+
+func detach(_ id: CGDirectDisplayID, reattachAfter seconds: Int?) throws {
+    try DisplayControl.setEnabled(id, false)
+    guard let seconds else {
+        print("Detached display \(id). Re-attach with `attach \(id)` (logging out also restores it).")
+        return
+    }
+    print("Detached display \(id). Re-attaching in \(seconds) s; Ctrl+C re-attaches now.")
+    signal(SIGINT, SIG_IGN)
+    let done = DispatchSemaphore(value: 0)
+    let interrupt = DispatchSource.makeSignalSource(signal: SIGINT, queue: .global())
+    interrupt.setEventHandler { done.signal() }
+    interrupt.resume()
+    _ = done.wait(timeout: .now() + .seconds(seconds))
+    interrupt.cancel()
+    try DisplayControl.setEnabled(id, true)
+    print("Re-attached display \(id).")
+}
+
 func run(_ arguments: [String]) throws {
     guard let command = arguments.first, command != "help", command != "-h", command != "--help" else {
         print(usageText)
         return
     }
-    let displays = try ExternalDisplay.all()
     let rest = Array(arguments.dropFirst())
 
+    switch command {
+    case "displays":
+        listDisplays()
+        return
+    case "detach":
+        let id = try displayID(rest.first)
+        let option = rest.dropFirst().first
+        try detach(id, reattachAfter: option == "--keep" ? nil : try option.map(parseNumber) ?? 10)
+        return
+    case "attach":
+        try DisplayControl.setEnabled(try displayID(rest.first, mustBeListed: false), true)
+        print("Attached.")
+        return
+    default:
+        break
+    }
+
+    let displays = try ExternalDisplay.all()
     switch command {
     case "list":
         list(displays)
