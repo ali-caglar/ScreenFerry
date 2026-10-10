@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/hello.schema.json",
+  "title": "hello",
+  "description": "First message on every connection, in both directions.",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "keyId",
+    "name",
+    "platform",
+    "appVersion"
+  ],
+  "properties": {
+    "type": {
+      "const": "hello"
+    },
+    "keyId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the sender's SubjectPublicKeyInfo (ADR 0006)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Computer name shown to the user."
+    },
+    "platform": {
+      "enum": [
+        "macos",
+        "windows"
+      ]
+    },
+    "appVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    }
+  },
+  "unevaluatedProperties": false
+}

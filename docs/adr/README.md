@@ -10,3 +10,4 @@ A superseded ADR stays in place with its status changed to `Superseded by NNNN`.
 | [0003](0003-license-and-dco.md) | MIT license and DCO sign-off | Accepted |
 | [0004](0004-versioning.md) | Releases are always `x.y.0` | Accepted |
 | [0005](0005-auto-source-switching-for-monitors-without-ddc.md) | Auto source switching for monitors without DDC/CI | Accepted |
+| [0006](0006-pairing-and-secure-channel.md) | Pairing and secure channel | Accepted |

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/pair.nonce.schema.json",
+  "title": "pair.nonce",
+  "description": "A pairing nonce: the initiator's (step 2), then the responder's (step 3).",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "nonce"
+  ],
+  "properties": {
+    "type": {
+      "const": "pair.nonce"
+    },
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "32 random bytes, fresh for every pairing attempt."
+    }
+  },
+  "unevaluatedProperties": false
+}

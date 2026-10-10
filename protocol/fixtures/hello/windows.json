@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 0,
+  "type": "hello",
+  "keyId": "0f1e2d3c4b5a69788796a5b4c3d2e1f000112233445566778899aabbccddeeff",
+  "name": "DESKTOP-PC",
+  "platform": "windows",
+  "appVersion": "0.2.1"
+}

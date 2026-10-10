@@ -7,7 +7,7 @@
   "required": ["protocolVersion", "type"],
   "properties": {
     "protocolVersion": {
-      "description": "0 while the protocol is a draft (before Phase 3).",
+      "description": "0 while the protocol is a draft; 1 once Phase 3 ships.",
       "type": "integer",
       "minimum": 0
     },
