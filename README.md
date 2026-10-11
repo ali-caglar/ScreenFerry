@@ -12,8 +12,8 @@ so windows and the cursor don't vanish onto a screen nobody can see. Then the co
 now owns the monitor attaches it.
 
 > **Status: early development.** Nothing is usable yet. Input switching and detaching
-> monitors work from command-line probes (Phases 1–2), and the Mac and Windows agents pair
-> and see each other's monitors (Phase 3). Scenes and hotkeys come next (Phase 4).
+> monitors work (Phases 1–2), the Mac and Windows agents pair (Phase 3), and a hotkey moves
+> monitors between them (Phase 4). Signed builds and installers come next (Phase 5).
 > See the [roadmap](docs/BRIEF.md#6-roadmap).
 
 ## Planned for v1

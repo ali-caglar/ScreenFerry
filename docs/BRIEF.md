@@ -1,6 +1,6 @@
 # ScreenFerry — Project Brief
 
-> Working name. Status: Phase 4 (scenes, hotkeys, UI); Phase 0 completed 2026-10-09, Phases 1–2 2026-10-10, Phase 3 2026-10-11. Owner/maintainer: Ali.
+> Working name. Status: Phase 5 (distribution); Phase 0 completed 2026-10-09, Phases 1–2 2026-10-10, Phases 3–4 2026-10-11. Owner/maintainer: Ali.
 > This brief is the source of truth for scope and architecture. Decisions that change it
 > are recorded as ADRs in `docs/adr/` and then reflected here.
 
@@ -162,6 +162,10 @@ Each phase ends with its acceptance criteria met and merged to `main`.
 - Scene editor, global hotkeys, menu-bar/tray UI, the handoff sequence from §3.3.
 - Scenes and hotkeys are per computer, with one built-in scene per computer (ADR 0007).
 - Done when: one hotkey moves both monitors from Mac to PC and back, 20 times in a row.
+- Result: handoff coordination and monitor matching across inputs (ADR 0007), scenes with
+  ⌃⌥⌘1–9 / Ctrl+Alt+Shift+1–9 and a progress HUD in both agents. Accepted 2026-10-11 with the
+  one monitor the maintainer shares (the G8, `autoSource`): 20 rounds Mac → PC → Mac by
+  hotkey from either computer. The `ddc` order is covered by tests only so far.
 
 **Phase 5 — Distribution**
 - macOS: Developer ID signing + notarization; Windows: signed installer, winget manifest;
