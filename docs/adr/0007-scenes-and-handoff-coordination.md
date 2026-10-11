@@ -81,6 +81,21 @@ monitors → <computer>", for every monitor shared with at least one peer) and l
 add scenes. Scenes and their hotkeys are stored per computer; only the resulting `handoff`
 goes over the wire. A scene is available only while every computer it names is connected.
 
+### One monitor, several identities
+
+A monitor can report a different EDID on each input: the maintainer's Samsung G8 is
+`SAM-E030-H1AK500000` over HDMI and `SAM-E035-H1AK500000` over DisplayPort. Agents therefore
+match a monitor reported by another computer to their own like this:
+
+1. a monitor with the identical identity, else
+2. the only monitor with the same manufacturer, the same serial part of the identity
+   (`MMM-PPPP-S` without `PPPP`) and the same EDID name.
+
+Hash identities (`edid-…`) and monitors without a name match only exactly. A `handoff` names
+monitors by any one of their identities; each agent resolves it to its own monitor and acts
+on that. `protocol/test-vectors/monitor-matching.json` pins the rule. It can only merge
+monitors that the vendor's placeholder serials already make indistinguishable.
+
 ### Ambiguous identities
 
 If two monitors connected to one computer share an identity (vendors that repeat a placeholder

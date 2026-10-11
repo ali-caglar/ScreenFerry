@@ -41,3 +41,35 @@ public class HandoffTests
         Assert.Equal(expected.GetProperty("done").GetBoolean(), Handoff.IsDone(target, states));
     }
 }
+
+public class MonitorMatchTests
+{
+    private static JsonElement Cases()
+    {
+        using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "test-vectors", "monitor-matching.json")));
+        return json.RootElement.GetProperty("cases").Clone();
+    }
+
+    public static TheoryData<string> Vectors()
+    {
+        var data = new TheoryData<string>();
+        foreach (var vector in Cases().EnumerateArray())
+        {
+            data.Add(vector.GetProperty("description").GetString()!);
+        }
+        return data;
+    }
+
+    private static MonitorStatus Monitor(JsonElement json) =>
+        new(json.GetProperty("identity").GetString()!, false, json.TryGetProperty("name", out var name) ? name.GetString() : null);
+
+    [Theory]
+    [MemberData(nameof(Vectors))]
+    public void MatchesVector(string description)
+    {
+        var v = Cases().EnumerateArray().Single(c => c.GetProperty("description").GetString() == description);
+        var match = MonitorMatch.Find(Monitor(v.GetProperty("reference")), v.GetProperty("candidates").EnumerateArray().Select(Monitor));
+        var expected = v.GetProperty("match");
+        Assert.Equal(expected.ValueKind == JsonValueKind.Null ? null : expected.GetString(), match?.Identity);
+    }
+}

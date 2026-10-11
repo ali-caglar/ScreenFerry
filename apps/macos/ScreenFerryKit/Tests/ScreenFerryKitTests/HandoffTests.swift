@@ -58,3 +58,38 @@ struct HandoffTests {
         #expect(Handoff.isDone(target: v.target, states: states) == v.expected.done)
     }
 }
+
+struct MonitorMatchTests {
+    struct Vectors: Decodable {
+        struct Case: Decodable, CustomTestStringConvertible {
+            let description: String
+            let reference: ProtocolMessage.MonitorStatus
+            let candidates: [ProtocolMessage.MonitorStatus]
+            let match: String?
+            var testDescription: String { description }
+        }
+
+        let cases: [Case]
+    }
+
+
+    static let vectors: Vectors = {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../../../../protocol/test-vectors/monitor-matching.json").standardizedFileURL
+        // The vectors omit `attached`; default it.
+        var json = try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
+        json["cases"] = (json["cases"] as! [[String: Any]]).map { item in
+            var item = item
+            func fill(_ m: [String: Any]) -> [String: Any] { m.merging(["attached": false]) { a, _ in a } }
+            item["reference"] = fill(item["reference"] as! [String: Any])
+            item["candidates"] = (item["candidates"] as! [[String: Any]]).map(fill)
+            return item
+        }
+        return try! JSONDecoder().decode(Vectors.self, from: JSONSerialization.data(withJSONObject: json))
+    }()
+
+    @Test(arguments: vectors.cases)
+    func matchesVector(_ v: Vectors.Case) {
+        #expect(MonitorMatch.find(v.reference, in: v.candidates)?.identity == v.match)
+    }
+}

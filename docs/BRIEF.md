@@ -40,6 +40,8 @@ the user activates a **scene** such as "both monitors → Mac", "left → Mac, r
 ### 3.1 Monitor identity
 The same physical monitor is seen by several computers. Agents identify it by EDID
 (manufacturer + product code + serial number, falling back to a hash of the EDID block).
+A monitor may report another product code on each input, so agents also match by
+manufacturer, serial and model name (ADR 0007).
 
 ### 3.2 Input codes are learned, not hard-coded
 `0x60` values differ per monitor model. While a machine is the active source of a monitor,

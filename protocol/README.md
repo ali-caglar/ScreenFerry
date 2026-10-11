@@ -6,7 +6,7 @@ The contract between agents. The macOS and Windows agents share no code; they sh
 - `fixtures/<schema>/` — golden messages. Each must validate against `schemas/<schema>.schema.json`,
   and both agents' test suites must parse and re-encode them.
 - `test-vectors/` — inputs and expected outputs for algorithms both agents implement
-  (`monitor-identity.json`, `pairing.json`, `handoff.json`); both test suites check them.
+  (`monitor-identity.json`, `monitor-matching.json`, `pairing.json`, `handoff.json`); both test suites check them.
 - `scripts/validate-fixtures.mjs` — the CI check.
 
 ```sh
@@ -79,6 +79,11 @@ Both agents derive the same key for a physical monitor from its EDID base block
 
 Known issue: some vendors put the same placeholder serial in every unit (Samsung uses
 `H1AK500000`), so two identical monitors can share a key. Agents leave such monitors out (ADR 0007).
+
+One monitor can report a different EDID, and so a different identity, on each input (the G8
+has product code `E030` over HDMI and `E035` over DisplayPort). Agents match another
+computer's monitor to their own by identical identity, else by manufacturer, serial part
+and EDID name (ADR 0007, `test-vectors/monitor-matching.json`).
 
 ## Version history
 
