@@ -7,11 +7,13 @@ C# on .NET 10, WPF, tray icon via `System.Windows.Forms.NotifyIcon` (ADR 0002).
 - `src/ScreenFerry.Core/` — `net10.0`, no Windows dependency: protocol models, pairing, and
   the agent's networking (`AgentIdentity`, `PeerConnection` over `SslStream`, `Agent`).
   Builds and tests on any OS; DNS-SD plugs in through `IPeerDiscovery`.
-- `src/ScreenFerry.App/` — `net10.0-windows` WPF app (`ScreenFerry.exe`). `UseWindowsForms`
+- `src/ScreenFerry.App/` — `net10.0-windows` WPF tray app (`ScreenFerry.exe`); CI publishes it
+  as the `screenferry-windows-x64` artifact. `UseWindowsForms`
   is on only for `NotifyIcon`; the implicit `System.Windows.Forms` using is removed to avoid
   clashes with WPF types, so alias it (`using Forms = System.Windows.Forms;`).
 - `src/ScreenFerry.Windows/` — `net10.0-windows` library for Windows APIs (P/Invoke via
-  `LibraryImport`): DDC/CI through `dxva2`, EDID from the registry. Used by the app and
+  `LibraryImport`): DDC/CI through `dxva2`, EDID from the registry, CCD detach/attach, DNS-SD
+  through `dnsapi.dll` (`DnsSdDiscovery`), the agent key in the user certificate store. Used by the app and
   `tools/ddc-probe-windows` (which is also in `ScreenFerry.sln`).
 - `tests/ScreenFerry.Core.Tests/` — xUnit. Protocol fixtures and test vectors are copied into
   the test output under `fixtures/` and `test-vectors/`.

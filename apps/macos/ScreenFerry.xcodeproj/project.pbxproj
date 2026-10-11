@@ -7,13 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2DF97FE1AE59D841EF9CB8FD /* ScreenFerryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 990C092DE3F712B8D79745ED /* ScreenFerryKit */; };
+		2DF97FE1AE59D841EF9CB8FD /* ScreenFerryAgent in Frameworks */ = {isa = PBXBuildFile; productRef = 990C092DE3F712B8D79745ED /* ScreenFerryAgent */; };
 		51AE1052AEAB8DDBBC2917C7 /* ScreenFerryApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA9FB90DBAEB0153298E64E8 /* ScreenFerryApp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		2144D84EF798DAD3905DAA72 /* ScreenFerry.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ScreenFerry.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		27C8F608A9FE90C5FB8A1A7C /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		7C1D0E5A3B9F4E2A8D6C1B07 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA9FB90DBAEB0153298E64E8 /* ScreenFerryApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenFerryApp.swift; sourceTree = "<group>"; };
 		ED02597DAEEC88F4D096AF1E /* ScreenFerryKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ScreenFerryKit; path = ScreenFerryKit; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -23,7 +24,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2DF97FE1AE59D841EF9CB8FD /* ScreenFerryKit in Frameworks */,
+				2DF97FE1AE59D841EF9CB8FD /* ScreenFerryAgent in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -49,6 +50,7 @@
 		DD49E8DB8BF8A9FA36F4087E /* ScreenFerry */ = {
 			isa = PBXGroup;
 			children = (
+				7C1D0E5A3B9F4E2A8D6C1B07 /* Info.plist */,
 				AA9FB90DBAEB0153298E64E8 /* ScreenFerryApp.swift */,
 			);
 			path = ScreenFerry;
@@ -88,7 +90,7 @@
 			);
 			name = ScreenFerry;
 			packageProductDependencies = (
-				990C092DE3F712B8D79745ED /* ScreenFerryKit */,
+				990C092DE3F712B8D79745ED /* ScreenFerryAgent */,
 			);
 			productName = ScreenFerry;
 			productReference = 2144D84EF798DAD3905DAA72 /* ScreenFerry.app */;
@@ -219,8 +221,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = ScreenFerry;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_FILE = ScreenFerry/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © ScreenFerry contributors. MIT License.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "ScreenFerry finds and talks to ScreenFerry on your other computers.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -242,8 +246,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = ScreenFerry;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_FILE = ScreenFerry/Info.plist;
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © ScreenFerry contributors. MIT License.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "ScreenFerry finds and talks to ScreenFerry on your other computers.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -344,9 +350,9 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		990C092DE3F712B8D79745ED /* ScreenFerryKit */ = {
+		990C092DE3F712B8D79745ED /* ScreenFerryAgent */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = ScreenFerryKit;
+			productName = ScreenFerryAgent;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
