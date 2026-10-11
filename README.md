@@ -43,6 +43,11 @@ DDC/CI support varies by monitor, cable, dock and adapter. Results reported by u
 [docs/compatibility.md](docs/compatibility.md). Please
 [add yours](https://github.com/ali-caglar/ScreenFerry/issues/new?template=monitor_compatibility.yml).
 
+## Installing
+
+See [docs/install.md](docs/install.md). Release builds are not signed yet, so macOS
+Gatekeeper and Windows SmartScreen warn once on first launch.
+
 ## Building from source
 
 | Part | Requirements | Build |
@@ -50,9 +55,6 @@ DDC/CI support varies by monitor, cable, dock and adapter. Results reported by u
 | macOS app | macOS 13+ to run; Xcode 26+ to build | see [apps/macos/CLAUDE.md](apps/macos/CLAUDE.md) |
 | Windows app | Windows 10/11 to run; .NET 10 SDK to build | see [apps/windows/CLAUDE.md](apps/windows/CLAUDE.md) |
 | Protocol fixtures | Node.js 24+ | `cd protocol && npm ci && npm run validate` |
-
-Release builds are currently unsigned, so macOS Gatekeeper and Windows SmartScreen will warn.
-Signing and notarization come in Phase 5.
 
 ## Versioning
 

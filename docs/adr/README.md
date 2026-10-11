@@ -12,3 +12,4 @@ A superseded ADR stays in place with its status changed to `Superseded by NNNN`.
 | [0005](0005-auto-source-switching-for-monitors-without-ddc.md) | Auto source switching for monitors without DDC/CI | Accepted |
 | [0006](0006-pairing-and-secure-channel.md) | Pairing and secure channel | Accepted |
 | [0007](0007-scenes-and-handoff-coordination.md) | Scenes and handoff coordination | Accepted |
+| [0008](0008-unsigned-releases-before-signing.md) | Unsigned releases before signing | Accepted |
