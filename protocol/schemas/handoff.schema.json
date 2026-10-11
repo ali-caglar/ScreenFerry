@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/handoff.schema.json",
+  "title": "handoff",
+  "description": "The owners a scene wants for some monitors. The newest (seq, sender key ID) wins (ADR 0007).",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "seq",
+    "owners"
+  ],
+  "properties": {
+    "type": {
+      "const": "handoff"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991,
+      "description": "Lamport counter: one more than the highest seq the sender has seen."
+    },
+    "owners": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "identity",
+          "owner"
+        ],
+        "properties": {
+          "identity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "Monitor identity (see README)."
+          },
+          "owner": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Key ID of the computer that should have the monitor."
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}

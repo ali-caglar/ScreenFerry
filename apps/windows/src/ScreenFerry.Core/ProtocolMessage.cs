@@ -34,6 +34,8 @@ public abstract record ProtocolMessage
             "monitors" => Read<MonitorsMessage>(json),
             "ping" => new PingMessage(),
             "error" => Read<ErrorMessage>(json),
+            "handoff" => Read<HandoffMessage>(json),
+            "handoff.failed" => Read<HandoffFailedMessage>(json),
             _ => new UnknownMessage(envelope.Type),
         };
     }
@@ -122,6 +124,28 @@ public sealed record ErrorMessage(
 {
     [JsonIgnore]
     public override string Type => "error";
+}
+
+public sealed record HandoffOwner(
+    [property: JsonPropertyName("identity")] string Identity,
+    [property: JsonPropertyName("owner"), JsonConverter(typeof(Hex32Converter))] byte[] Owner);
+
+/// <summary>The owners a scene wants for some monitors (ADR 0007).</summary>
+public sealed record HandoffMessage(
+    [property: JsonPropertyName("seq")] long Seq,
+    [property: JsonPropertyName("owners")] IReadOnlyList<HandoffOwner> Owners) : ProtocolMessage
+{
+    [JsonIgnore]
+    public override string Type => "handoff";
+}
+
+public sealed record HandoffFailedMessage(
+    [property: JsonPropertyName("seq")] long Seq,
+    [property: JsonPropertyName("identity")] string Identity,
+    [property: JsonPropertyName("message")] string Message) : ProtocolMessage
+{
+    [JsonIgnore]
+    public override string Type => "handoff.failed";
 }
 
 /// <summary>A type this version doesn't know; receivers ignore it.</summary>

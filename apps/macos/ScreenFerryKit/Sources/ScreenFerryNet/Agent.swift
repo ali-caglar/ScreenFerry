@@ -226,6 +226,8 @@ public final class Agent: ObservableObject {
             guard link.isPaired else { return reject(link, .notPaired) }
             peerMonitors[hello.keyID.hex] = monitors
             publish()
+        case .handoff, .handoffFailed:
+            guard link.isPaired else { return reject(link, .notPaired) }
         case .error:
             link.connection.close(nil)
         }

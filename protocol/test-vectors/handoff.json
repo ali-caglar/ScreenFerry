@@ -1,0 +1,334 @@
+{
+  "description": "Each agent's step for one monitor of a handoff (ADR 0007). states: the latest attached/inputCode each connected computer reports for the monitor, including self; a computer missing from states doesn't see it or isn't connected. step is one of none, attach, waitForRelease, switchAndRelease (set VCP 0x60 to inputCode, then release), waitForAttach, releaseAfterSettle, missing. done: attached on the target and nowhere else.",
+  "cases": [
+    {
+      "description": "autoSource: the new owner attaches",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": false
+        }
+      },
+      "expected": {
+        "step": "attach",
+        "done": false
+      }
+    },
+    {
+      "description": "autoSource: the owner waits for the new owner",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": false
+        }
+      },
+      "expected": {
+        "step": "waitForAttach",
+        "done": false
+      }
+    },
+    {
+      "description": "autoSource: the owner releases once the new owner attached",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": true
+        }
+      },
+      "expected": {
+        "step": "releaseAfterSettle",
+        "done": false
+      }
+    },
+    {
+      "description": "autoSource: the new owner is done while the owner settles",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": true
+        }
+      },
+      "expected": {
+        "step": "none",
+        "done": false
+      }
+    },
+    {
+      "description": "ddc: the owner switches to the new owner's input and releases",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "switchAndRelease",
+        "done": false,
+        "inputCode": 15
+      }
+    },
+    {
+      "description": "ddc: the new owner waits for the release",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "waitForRelease",
+        "done": false
+      }
+    },
+    {
+      "description": "ddc: both attached, the owner still switches and releases",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": true,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "switchAndRelease",
+        "done": false,
+        "inputCode": 15
+      }
+    },
+    {
+      "description": "no owner: the new owner attaches",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": false,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "attach",
+        "done": false
+      }
+    },
+    {
+      "description": "done, seen by the new owner",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": false
+        },
+        "pc": {
+          "attached": true
+        }
+      },
+      "expected": {
+        "step": "none",
+        "done": true
+      }
+    },
+    {
+      "description": "done, seen by the old owner",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": false
+        },
+        "pc": {
+          "attached": true
+        }
+      },
+      "expected": {
+        "step": "none",
+        "done": true
+      }
+    },
+    {
+      "description": "a computer that is neither owner does nothing",
+      "self": "third",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": false
+        },
+        "third": {
+          "attached": false
+        }
+      },
+      "expected": {
+        "step": "none",
+        "done": false
+      }
+    },
+    {
+      "description": "only the new owner knows its code: autoSource",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "attach",
+        "done": false
+      }
+    },
+    {
+      "description": "only the owner knows its code: autoSource",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": false
+        }
+      },
+      "expected": {
+        "step": "waitForAttach",
+        "done": false
+      }
+    },
+    {
+      "description": "the new owner is not connected: autoSource",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        }
+      },
+      "expected": {
+        "step": "waitForAttach",
+        "done": false
+      }
+    },
+    {
+      "description": "two owners, one without a code: autoSource",
+      "self": "mac",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "third": {
+          "attached": true
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "waitForAttach",
+        "done": false
+      }
+    },
+    {
+      "description": "two owners with codes: ddc, the new owner waits for both",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "third": {
+          "attached": true,
+          "inputCode": 16
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "waitForRelease",
+        "done": false
+      }
+    },
+    {
+      "description": "the new owner doesn't see the monitor",
+      "self": "pc",
+      "target": "pc",
+      "states": {
+        "mac": {
+          "attached": true
+        }
+      },
+      "expected": {
+        "step": "missing",
+        "done": false
+      }
+    },
+    {
+      "description": "already done, target is self",
+      "self": "mac",
+      "target": "mac",
+      "states": {
+        "mac": {
+          "attached": true,
+          "inputCode": 17
+        },
+        "pc": {
+          "attached": false,
+          "inputCode": 15
+        }
+      },
+      "expected": {
+        "step": "none",
+        "done": true
+      }
+    }
+  ]
+}

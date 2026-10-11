@@ -9,6 +9,8 @@ public enum ProtocolMessage: Equatable, Sendable {
     case monitors([MonitorStatus])
     case ping
     case error(ProtocolErrorCode, message: String? = nil)
+    case handoff(seq: Int, owners: [Owner])
+    case handoffFailed(seq: Int, identity: String, message: String)
     /// A type this version doesn't know; receivers ignore it.
     case unknown(type: String)
 
@@ -46,6 +48,17 @@ public enum ProtocolMessage: Equatable, Sendable {
         }
     }
 
+    public struct Owner: Equatable, Sendable {
+        public var identity: String
+        /// Key ID of the computer that should have the monitor.
+        public var owner: Data
+
+        public init(identity: String, owner: Data) {
+            self.identity = identity
+            self.owner = owner
+        }
+    }
+
     public var type: String {
         switch self {
         case .hello: "hello"
@@ -55,6 +68,8 @@ public enum ProtocolMessage: Equatable, Sendable {
         case .monitors: "monitors"
         case .ping: "ping"
         case .error: "error"
+        case .handoff: "handoff"
+        case .handoffFailed: "handoff.failed"
         case let .unknown(type): type
         }
     }
@@ -67,7 +82,7 @@ public enum ProtocolErrorCode: String, Codable, Sendable {
 extension ProtocolMessage: Codable {
     private enum Keys: String, CodingKey {
         case protocolVersion, type, keyId, name, platform, appVersion, commitment, nonce, accepted,
-             monitors, code, message
+             monitors, code, message, seq, owners, identity, owner
     }
 
     public init(from decoder: any Decoder) throws {
@@ -86,6 +101,17 @@ extension ProtocolMessage: Codable {
         case "error":
             self = .error(try c.decode(ProtocolErrorCode.self, forKey: .code),
                           message: try c.decodeIfPresent(String.self, forKey: .message))
+        case "handoff":
+            var list = try c.nestedUnkeyedContainer(forKey: .owners)
+            var owners: [Owner] = []
+            while !list.isAtEnd {
+                let item = try list.nestedContainer(keyedBy: Keys.self)
+                owners.append(Owner(identity: try item.decode(String.self, forKey: .identity), owner: try item.decodeHex(.owner)))
+            }
+            self = .handoff(seq: try c.decode(Int.self, forKey: .seq), owners: owners)
+        case "handoff.failed":
+            self = .handoffFailed(seq: try c.decode(Int.self, forKey: .seq), identity: try c.decode(String.self, forKey: .identity),
+                                  message: try c.decode(String.self, forKey: .message))
         case let type: self = .unknown(type: type)
         }
     }
@@ -108,6 +134,18 @@ extension ProtocolMessage: Codable {
         case let .error(code, message):
             try c.encode(code, forKey: .code)
             try c.encodeIfPresent(message, forKey: .message)
+        case let .handoff(seq, owners):
+            try c.encode(seq, forKey: .seq)
+            var list = c.nestedUnkeyedContainer(forKey: .owners)
+            for owner in owners {
+                var item = list.nestedContainer(keyedBy: Keys.self)
+                try item.encode(owner.identity, forKey: .identity)
+                try item.encode(owner.owner.hex, forKey: .owner)
+            }
+        case let .handoffFailed(seq, identity, message):
+            try c.encode(seq, forKey: .seq)
+            try c.encode(identity, forKey: .identity)
+            try c.encode(message, forKey: .message)
         }
     }
 }

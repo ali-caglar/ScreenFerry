@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ali-caglar/ScreenFerry/protocol/schemas/handoff.failed.schema.json",
+  "title": "handoff.failed",
+  "description": "The sender could not do its step for one monitor of a handoff.",
+  "$ref": "envelope.schema.json",
+  "type": "object",
+  "required": [
+    "type",
+    "seq",
+    "identity",
+    "message"
+  ],
+  "properties": {
+    "type": {
+      "const": "handoff.failed"
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "identity": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Why, for the user."
+    }
+  },
+  "unevaluatedProperties": false
+}
