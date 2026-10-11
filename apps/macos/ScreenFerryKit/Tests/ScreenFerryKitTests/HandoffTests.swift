@@ -72,7 +72,6 @@ struct MonitorMatchTests {
         let cases: [Case]
     }
 
-
     static let vectors: Vectors = {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .appending(path: "../../../../../protocol/test-vectors/monitor-matching.json").standardizedFileURL
@@ -91,5 +90,23 @@ struct MonitorMatchTests {
     @Test(arguments: vectors.cases)
     func matchesVector(_ v: Vectors.Case) {
         #expect(MonitorMatch.find(v.reference, in: v.candidates)?.identity == v.match)
+    }
+}
+
+struct HandoffClockTests {
+    @Test func newestWins() {
+        var clock = HandoffClock()
+        let mine = clock.start(owners: ["G8": "a"], origin: "a")
+        #expect(mine.seq == 1)
+        let accepted = [
+            clock.receive(seq: 1, owners: ["G8": "b"], from: "a"),
+            clock.receive(seq: 1, owners: ["G8": "b"], from: "b"),
+            clock.receive(seq: 1, owners: ["G8": "a"], from: "a"),
+            clock.receive(seq: 4, owners: ["G8": "a"], from: "a"),
+        ]
+        #expect(accepted == [false, true, false, true])
+        #expect(clock.target?.owners == ["G8": "a"])
+        let next = clock.start(owners: [:], origin: "b")
+        #expect(next.seq == 5)
     }
 }

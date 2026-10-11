@@ -3,7 +3,15 @@ import Foundation
 import Network
 import ScreenFerryKit
 
-/// Finds, pairs with and stays connected to the other computers' agents (ADR 0006).
+/// Does this computer's steps of a handoff (ADR 0007).
+@MainActor
+public protocol HandoffExecutor: AnyObject {
+    /// Attaches or releases the monitor; the agent learns the result from `setLocalMonitors`.
+    func perform(_ step: HandoffStep, on identity: String) async throws
+}
+
+/// Finds, pairs with and stays connected to the other computers' agents (ADR 0006), and
+/// moves monitors between them (ADR 0007).
 @MainActor
 public final class Agent: ObservableObject {
     public struct Peer: Identifiable, Equatable, Sendable {
@@ -23,6 +31,19 @@ public final class Agent: ObservableObject {
         public var code: String
     }
 
+    public struct HandoffStatus: Equatable, Sendable {
+        public var seq: Int
+        /// Monitor identity → owner key ID (hex).
+        public var owners: [String: String]
+        /// Identities not yet attached on their target only.
+        public var pending: Set<String>
+        /// Identity → why it failed, prefixed with the computer's name.
+        public var failures: [String: String]
+        public var isExpired: Bool
+
+        public var isFinished: Bool { pending.isEmpty || isExpired || pending.isSubset(of: failures.keys) }
+    }
+
     public static let pairingWindow: TimeInterval = 120
     static let pingInterval: TimeInterval = 15
     static let silenceLimit: TimeInterval = 45
@@ -33,6 +54,10 @@ public final class Agent: ObservableObject {
     /// Outcome of the last pairing attempt, for the UI.
     @Published public private(set) var pairingResult: String?
     @Published public private(set) var listenerError: String?
+    @Published public private(set) var handoff: HandoffStatus?
+    public weak var executor: HandoffExecutor?
+    /// How long a monitor stays attached on its new owner before the old owner releases it.
+    public var settle = Handoff.settle
 
     public let identity: AgentIdentity
     public let name: String
@@ -48,6 +73,10 @@ public final class Agent: ObservableObject {
     private var links: [Link] = []
     private var pairingDeadline: Date?
     private var timer: Timer?
+    private var clock = HandoffClock()
+    private var inFlight: Set<String> = []
+    private var failures: [String: String] = [:]
+    private var targetAttachedSince: [String: Date] = [:]
 
     private struct Discovered {
         var endpoint: NWEndpoint
@@ -89,6 +118,8 @@ public final class Agent: ObservableObject {
     }
 
     public var listenerPort: UInt16? { listener?.port?.rawValue }
+
+    public var keyID: String { identity.keyID.hex }
 
     /// `advertise: false` skips DNS-SD (tests connect by port).
     public func start(port: NWEndpoint.Port = .any, advertise: Bool = true) throws {
@@ -158,6 +189,15 @@ public final class Agent: ObservableObject {
         guard monitors != localMonitors else { return }
         localMonitors = monitors
         for link in links where link.isPaired { link.send(.monitors(monitors)) }
+        advanceHandoff()
+    }
+
+    /// Moves monitors to the given owners (identity → key ID hex) and tells every connected peer.
+    public func activate(owners: [String: String]) {
+        let target = clock.start(owners: owners, origin: keyID)
+        resetHandoff()
+        for link in links where link.isPaired { link.send(handoffMessage(target)) }
+        advanceHandoff()
     }
 
     /// Connects to a paired peer, e.g. one not found by DNS-SD.
@@ -198,6 +238,7 @@ public final class Agent: ObservableObject {
             receive(message, on: link)
         case .closed:
             links.removeAll { $0 === link }
+            advanceHandoff()
             if link.pairing != nil {
                 pairingPrompt = nil
                 pairingResult = "Pairing with \(link.hello?.name ?? "?") was interrupted."
@@ -226,8 +267,21 @@ public final class Agent: ObservableObject {
             guard link.isPaired else { return reject(link, .notPaired) }
             peerMonitors[hello.keyID.hex] = monitors
             publish()
-        case .handoff, .handoffFailed:
+            advanceHandoff()
+        case let .handoff(seq, owners):
             guard link.isPaired else { return reject(link, .notPaired) }
+            let known = owners.filter { $0.owner == identity.keyID || paired[$0.owner.hex] != nil }
+            let target = Dictionary(known.map { ($0.identity, $0.owner.hex) }) { first, _ in first }
+            if clock.receive(seq: seq, owners: target, from: hello.keyID.hex) {
+                resetHandoff()
+                advanceHandoff()
+            }
+        case let .handoffFailed(seq, identity, message):
+            guard link.isPaired else { return reject(link, .notPaired) }
+            if seq == clock.target?.seq {
+                failures[identity] = "\(hello.name): \(message)"
+                advanceHandoff()
+            }
         case .error:
             link.connection.close(nil)
         }
@@ -265,6 +319,7 @@ public final class Agent: ObservableObject {
         }
         link.isPaired = true
         link.send(.monitors(localMonitors))
+        if let target = clock.target, handoff?.isFinished == false { link.send(handoffMessage(target)) }
         publish()
     }
 
@@ -301,6 +356,7 @@ public final class Agent: ObservableObject {
     private func tick() {
         let now = Date()
         if let pairingDeadline, now > pairingDeadline { setPairingMode(false) }
+        advanceHandoff()
         for link in links {
             if now.timeIntervalSince(link.connection.lastReceived) > Self.silenceLimit {
                 link.connection.close("Peer went silent.")
@@ -314,6 +370,99 @@ public final class Agent: ObservableObject {
                 connect(to: peer.endpoint)
             }
         }
+    }
+
+    // MARK: Handoff
+
+    private func handoffMessage(_ target: HandoffTarget) -> ProtocolMessage {
+        .handoff(seq: target.seq, owners: target.owners.sorted { $0.key < $1.key }.compactMap { identity, owner in
+            Data(hex: owner).map { ProtocolMessage.Owner(identity: identity, owner: $0) }
+        })
+    }
+
+    private func resetHandoff() {
+        failures = [:]
+        targetAttachedSince = [:]
+    }
+
+    /// What each connected computer, including this one, reports for the monitor, and this
+    /// computer's identity for it, which may differ (ADR 0007).
+    private func states(for monitor: String) -> (states: [String: Handoff.State], localIdentity: String?) {
+        var reports = [(keyID, localMonitors)]
+        for link in links where link.isPaired {
+            guard let peerID = link.peerID else { continue }
+            reports.append((peerID, peerMonitors[peerID] ?? []))
+        }
+        guard let reference = reports.lazy.flatMap(\.1).first(where: { $0.identity == monitor }) else { return ([:], nil) }
+        var states: [String: Handoff.State] = [:]
+        var localIdentity: String?
+        for (id, monitors) in reports {
+            guard let match = MonitorMatch.find(reference, in: monitors) else { continue }
+            states[id] = Handoff.State(attached: match.attached, inputCode: match.inputCode)
+            if id == keyID { localIdentity = match.identity }
+        }
+        return (states, localIdentity)
+    }
+
+    private func advanceHandoff() {
+        guard let target = clock.target else { return }
+        let now = Date()
+        let isExpired = now.timeIntervalSince(target.startedAt) > Handoff.expiry
+        var pending = Set<String>()
+        for (monitor, owner) in target.owners.sorted(by: { $0.key < $1.key }) {
+            let (states, localIdentity) = states(for: monitor)
+            if states[owner]?.attached == true {
+                targetAttachedSince[monitor] = targetAttachedSince[monitor] ?? now
+            } else {
+                targetAttachedSince[monitor] = nil
+            }
+            guard !Handoff.isDone(target: owner, states: states) else { continue }
+            pending.insert(monitor)
+            guard !isExpired, failures[monitor] == nil, !inFlight.contains(monitor) else { continue }
+            let step = Handoff.step(local: keyID, target: owner, states: states)
+            switch step {
+            case .none, .waitForAttach, .waitForRelease:
+                break
+            case .missing:
+                fail(monitor, seq: target.seq, "This computer doesn't see the monitor.")
+            case .releaseAfterSettle:
+                let remaining = settle - now.timeIntervalSince(targetAttachedSince[monitor] ?? now)
+                if remaining > 0 {
+                    Task { [weak self] in
+                        try? await Task.sleep(for: .seconds(remaining))
+                        self?.advanceHandoff()
+                    }
+                } else {
+                    perform(step, on: monitor, as: localIdentity ?? monitor, seq: target.seq)
+                }
+            case .attach, .switchAndRelease:
+                perform(step, on: monitor, as: localIdentity ?? monitor, seq: target.seq)
+            }
+        }
+        let status = HandoffStatus(seq: target.seq, owners: target.owners, pending: pending, failures: failures, isExpired: isExpired)
+        if status != handoff { handoff = status }
+    }
+
+    /// `localIdentity`: this computer's identity for `monitor`.
+    private func perform(_ step: HandoffStep, on monitor: String, as localIdentity: String, seq: Int) {
+        guard let executor else { return fail(monitor, seq: seq, "This computer can't move monitors.") }
+        inFlight.insert(monitor)
+        Task { [weak self] in
+            do {
+                try await executor.perform(step, on: localIdentity)
+            } catch {
+                self?.fail(monitor, seq: seq, "\(error)")
+            }
+            self?.inFlight.remove(monitor)
+            self?.advanceHandoff()
+        }
+    }
+
+    private func fail(_ monitor: String, seq: Int, _ message: String) {
+        guard seq == clock.target?.seq else { return }
+        failures[monitor] = "\(name): \(message)"
+        let text = String(message.prefix(256))
+        for link in links where link.isPaired { link.send(.handoffFailed(seq: seq, identity: monitor, message: text)) }
     }
 
     // MARK: Discovery
