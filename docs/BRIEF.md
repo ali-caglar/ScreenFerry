@@ -27,7 +27,8 @@ the user activates a **scene** such as "both monitors → Mac", "left → Mac, r
 - 2–4 computers, 1–4 external monitors, all on one local network.
 - Scenes, global hotkeys, menu-bar / tray UI.
 - Secure pairing; agents only obey paired peers.
-- Works offline on the LAN. No accounts, no cloud, no telemetry.
+- Works offline on the LAN. No accounts, no cloud, no telemetry. The only call outside the
+  LAN is the signed update check against GitHub Releases (ADR 0009).
 
 ### Non-goals (v1)
 - Keyboard/mouse sharing (integration with Deskflow / Input Leap is a later idea).
@@ -172,6 +173,8 @@ Each phase ends with its acceptance criteria met and merged to `main`.
   Homebrew cask. Signing material only as CI secrets, never in the repo.
 - Until then, releases ship an ad-hoc signed macOS app and self-contained Windows exes with
   install notes (ADR 0008), and the agents can start at login.
+- Agents update themselves from signed manifests in GitHub Releases: Sparkle on macOS, a small
+  self-replacing updater on Windows (ADR 0009).
 
 ## 7. Repository standards (public repo)
 

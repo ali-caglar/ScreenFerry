@@ -35,6 +35,14 @@ Requires Windows 10 version 1903 or later, or Windows 11.
 4. ScreenFerry lives in the notification area. To start it with Windows, right-click its icon
    and check **Start with Windows**.
 
+## Updates
+
+Once installed, ScreenFerry checks GitHub for a new release at launch and once a day,
+verifies its signature, installs it while no monitors are moving, and restarts itself
+([ADR 0009](adr/0009-automatic-updates.md)). **Check for Updates…** in the menu (macOS) or
+**Check for Updates** in the tray menu (Windows) checks right away. That check is the only
+connection ScreenFerry makes outside your local network.
+
 ## Pair and move monitors
 
 1. On both computers, click **Add Computer…**, then **Pair** next to the other one.

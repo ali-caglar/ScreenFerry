@@ -21,10 +21,12 @@ public partial class App : Application
     private Timer? _monitorTimer;
     private MainWindow? _window;
     private bool _promptShown;
+    private Updater? _updater;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        var updatedTo = AfterUpdate(e.Args);
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open ScreenFerry", null, (_, _) => ShowWindow());
@@ -32,6 +34,7 @@ public partial class App : Application
         menu.Opening += (_, _) => startWithWindows.Checked = Environment.ProcessPath is { } path && Autostart.IsEnabled(path);
         startWithWindows.Click += (_, _) => SetAutostart(startWithWindows.Checked);
         menu.Items.Add(startWithWindows);
+        menu.Items.Add("Check for Updates", null, (_, _) => _ = _updater?.CheckAsync(manual: true));
         menu.Items.Add("Quit ScreenFerry", null, (_, _) => Shutdown());
         _trayIcon = new Forms.NotifyIcon
         {
@@ -62,17 +65,46 @@ public partial class App : Application
             _monitorTimer = new Timer(_ => _controller.Refresh(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
             ComponentDispatcher.ThreadFilterMessage += OnThreadMessage;
             _window = new MainWindow(_agent, _controller, () => discovery.Error);
+            var agent = _agent;
+            _updater = new Updater(
+                () => agent.CurrentHandoff is { IsFinished: false },
+                message => Dispatcher.BeginInvoke(() => _trayIcon?.ShowBalloonTip(5000, "ScreenFerry", message, Forms.ToolTipIcon.Info)),
+                () => Dispatcher.BeginInvoke(() => Shutdown()));
         }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or System.Net.Sockets.SocketException or System.IO.IOException or UnauthorizedAccessException)
         {
             startError = ex.Message;
         }
         _window ??= new MainWindow(null, null, () => startError);
+        if (updatedTo is not null)
+        {
+            _trayIcon.ShowBalloonTip(5000, "ScreenFerry", $"Updated to {updatedTo}.", Forms.ToolTipIcon.Info);
+        }
+    }
+
+    /// <summary>After a self-update: waits for the old process to exit and removes its exe. Returns the new version.</summary>
+    private static string? AfterUpdate(string[] args)
+    {
+        var updated = Array.IndexOf(args, "--updated") is var u and >= 0 && u + 1 < args.Length ? args[u + 1] : null;
+        if (Array.IndexOf(args, "--after") is var a and >= 0 && a + 1 < args.Length && int.TryParse(args[a + 1], out var pid))
+        {
+            try
+            {
+                using var old = System.Diagnostics.Process.GetProcessById(pid);
+                old.WaitForExit(TimeSpan.FromSeconds(15));
+            }
+            catch (ArgumentException)
+            {
+            }
+        }
+        Updater.CleanUp();
+        return updated;
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         GlobalHotKeys.Unregister();
+        _updater?.Dispose();
         _monitorTimer?.Dispose();
         _agent?.Dispose();
         _trayIcon?.Dispose();

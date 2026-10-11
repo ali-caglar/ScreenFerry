@@ -65,6 +65,35 @@ jobs:
           codesign --verify --deep --strict "$app"
           mkdir -p dist
           ditto -c -k --keepParent "$app" "dist/ScreenFerry-$VERSION-macos-unsigned.zip"
+      # Sparkle feed for automatic updates (ADR 0009); skipped without the key.
+      - name: Write appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::warning::SPARKLE_ED_PRIVATE_KEY is not set; no appcast, so Macs won't see this release as an update."
+            exit 0
+          fi
+          zip="ScreenFerry-$VERSION-macos-unsigned.zip"
+          signature=$(printf '%s' "$SPARKLE_ED_PRIVATE_KEY" | \
+            build/DerivedData/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update --ed-key-file - "dist/$zip")
+          cat > dist/appcast.xml <<XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+            <channel>
+              <title>ScreenFerry</title>
+              <item>
+                <title>ScreenFerry $VERSION</title>
+                <link>https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG</link>
+                <sparkle:version>$GITHUB_RUN_NUMBER</sparkle:version>
+                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+                <pubDate>$(date -R)</pubDate>
+                <enclosure url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$zip" $signature type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          XML
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -105,6 +134,28 @@ jobs:
               -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" -o "publish/$rid"
             pwsh -NoProfile -Command "Compress-Archive -Path 'publish/$rid/ScreenFerry.exe' -DestinationPath 'dist/ScreenFerry-$VERSION-$rid-unsigned.zip'"
           done
+      # Update manifest for the Windows agent (ADR 0009); skipped without the key.
+      - name: Write update manifest
+        env:
+          WINDOWS_UPDATE_KEY: ${{ secrets.WINDOWS_UPDATE_KEY }}
+        run: |
+          if [ -z "$WINDOWS_UPDATE_KEY" ]; then
+            echo "::warning::WINDOWS_UPDATE_KEY is not set; no update manifest, so PCs won't see this release as an update."
+            exit 0
+          fi
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$WINDOWS_UPDATE_KEY" > "$key"
+          assets=""
+          for rid in win-x64 win-arm64; do
+            zip="ScreenFerry-$VERSION-$rid-unsigned.zip"
+            sha=$(sha256sum "dist/$zip" | cut -d' ' -f1)
+            sig=$(openssl dgst -sha256 -sign "$key" "dist/$zip" | base64 -w0)
+            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$zip"
+            assets="$assets${assets:+,}\"$rid\":{\"url\":\"$url\",\"sha256\":\"$sha\",\"signature\":\"$sig\"}"
+          done
+          printf '{"version":"%s","assets":{%s}}\n' "$VERSION" "$assets" > dist/windows-update.json
+          jq . dist/windows-update.json
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
