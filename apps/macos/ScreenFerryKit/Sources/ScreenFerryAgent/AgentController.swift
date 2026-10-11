@@ -3,6 +3,7 @@ import Foundation
 import ScreenFerryDisplays
 import ScreenFerryKit
 import ScreenFerryNet
+import ServiceManagement
 
 /// Runs this Mac's agent for the menu-bar app.
 @MainActor
@@ -35,6 +36,9 @@ public final class AgentController: ObservableObject, HandoffExecutor {
     @Published public private(set) var ambiguousMonitors: [String] = []
     @Published public private(set) var sceneError: String?
     @Published public private(set) var localMonitors: [ProtocolMessage.MonitorStatus] = []
+    @Published public private(set) var opensAtLogin = SMAppService.mainApp.status == .enabled
+    /// Why the login item isn't on, if macOS needs the user's approval or refused.
+    @Published public private(set) var loginItemNote: String?
 
     private let displays = DisplayHandoff()
     private let sceneStore = JSONFileStore<[Scene]>.scenes()
@@ -73,6 +77,20 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             }
         } catch {
             startError = "\(error)"
+        }
+    }
+
+    public func setOpensAtLogin(_ on: Bool) {
+        do {
+            if on { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+            loginItemNote = nil
+        } catch {
+            loginItemNote = error.localizedDescription
+        }
+        let status = SMAppService.mainApp.status
+        opensAtLogin = status == .enabled
+        if status == .requiresApproval {
+            loginItemNote = "Allow ScreenFerry in System Settings → General → Login Items."
         }
     }
 

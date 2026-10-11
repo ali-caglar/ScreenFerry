@@ -19,6 +19,10 @@ public struct MenuContent: View {
                 Text(controller.startError ?? "").font(.caption).foregroundStyle(.secondary)
             }
             Divider()
+            Toggle("Open at Login", isOn: Binding(get: { controller.opensAtLogin }, set: { controller.setOpensAtLogin($0) }))
+            if let note = controller.loginItemNote {
+                Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             Button("Quit ScreenFerry") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }
