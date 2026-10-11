@@ -28,6 +28,10 @@ public partial class App : Application
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open ScreenFerry", null, (_, _) => ShowWindow());
+        var startWithWindows = new Forms.ToolStripMenuItem("Start with Windows") { CheckOnClick = true };
+        menu.Opening += (_, _) => startWithWindows.Checked = Environment.ProcessPath is { } path && Autostart.IsEnabled(path);
+        startWithWindows.Click += (_, _) => SetAutostart(startWithWindows.Checked);
+        menu.Items.Add(startWithWindows);
         menu.Items.Add("Quit ScreenFerry", null, (_, _) => Shutdown());
         _trayIcon = new Forms.NotifyIcon
         {
@@ -73,6 +77,22 @@ public partial class App : Application
         _agent?.Dispose();
         _trayIcon?.Dispose();
         base.OnExit(e);
+    }
+
+    private void SetAutostart(bool enabled)
+    {
+        if (Environment.ProcessPath is not { } path)
+        {
+            return;
+        }
+        try
+        {
+            Autostart.Set(enabled, path);
+        }
+        catch (Exception e) when (e is UnauthorizedAccessException or System.Security.SecurityException or System.IO.IOException)
+        {
+            _trayIcon?.ShowBalloonTip(5000, "ScreenFerry", $"Couldn't change Start with Windows: {e.Message}", Forms.ToolTipIcon.Warning);
+        }
     }
 
     private void ShowWindow()
