@@ -9,6 +9,7 @@ let package = Package(
         .library(name: "ScreenFerryDDC", targets: ["ScreenFerryDDC"]),
         .library(name: "ScreenFerryDisplays", targets: ["ScreenFerryDisplays"]),
         .library(name: "ScreenFerryNet", targets: ["ScreenFerryNet"]),
+        .library(name: "ScreenFerryAgent", targets: ["ScreenFerryAgent"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.21.0"),
@@ -21,6 +22,7 @@ let package = Package(
             "ScreenFerryKit",
             .product(name: "X509", package: "swift-certificates"),
         ]),
+        .target(name: "ScreenFerryAgent", dependencies: ["ScreenFerryKit", "ScreenFerryNet", "ScreenFerryDisplays"]),
         .testTarget(name: "ScreenFerryKitTests", dependencies: ["ScreenFerryKit"]),
         .testTarget(name: "ScreenFerryNetTests", dependencies: ["ScreenFerryNet"]),
     ]

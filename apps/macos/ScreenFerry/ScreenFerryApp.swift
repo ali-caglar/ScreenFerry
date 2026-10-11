@@ -1,15 +1,16 @@
-import AppKit
-import ScreenFerryKit
+import ScreenFerryAgent
 import SwiftUI
 
 @main
 struct ScreenFerryApp: App {
+    @StateObject private var controller = AgentController()
+
     var body: some Scene {
-        MenuBarExtra("ScreenFerry", systemImage: "display.2") {
-            Button("Quit ScreenFerry") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q")
+        MenuBarExtra {
+            MenuContent(controller: controller)
+        } label: {
+            MenuBarIcon(controller: controller)
         }
+        .menuBarExtraStyle(.window)
     }
 }
