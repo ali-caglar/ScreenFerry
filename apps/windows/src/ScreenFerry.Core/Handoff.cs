@@ -58,3 +58,33 @@ public static class Handoff
         return states.TryGetValue(target, out var t) && t.Attached && !states.Any(s => s.Key != target && s.Value.Attached);
     }
 }
+
+/// <summary>The handoff an agent is working towards. <paramref name="Owners"/>: monitor identity → owner key ID (hex).</summary>
+public sealed record HandoffTarget(long Seq, string Origin, IReadOnlyDictionary<string, string> Owners, DateTimeOffset StartedAt);
+
+/// <summary>Lamport ordering of handoffs: the newest (seq, origin) wins (ADR 0007).</summary>
+public sealed class HandoffClock
+{
+    public long HighestSeq { get; private set; }
+
+    public HandoffTarget? Target { get; private set; }
+
+    public HandoffTarget Start(IReadOnlyDictionary<string, string> owners, string origin, DateTimeOffset now)
+    {
+        HighestSeq++;
+        Target = new HandoffTarget(HighestSeq, origin, owners, now);
+        return Target;
+    }
+
+    /// <summary>Returns whether the received handoff replaced the current target.</summary>
+    public bool Receive(long seq, IReadOnlyDictionary<string, string> owners, string origin, DateTimeOffset now)
+    {
+        HighestSeq = Math.Max(HighestSeq, seq);
+        if (Target is { } current && (seq < current.Seq || (seq == current.Seq && string.CompareOrdinal(origin, current.Origin) <= 0)))
+        {
+            return false;
+        }
+        Target = new HandoffTarget(seq, origin, owners, now);
+        return true;
+    }
+}
