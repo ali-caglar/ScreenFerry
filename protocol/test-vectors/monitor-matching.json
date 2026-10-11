@@ -1,0 +1,127 @@
+{
+  "description": "Which of a computer's monitors (candidates) is the same physical monitor as reference, reported by another computer (ADR 0007). An identical identity matches. Otherwise a candidate matches if it has the same manufacturer and serial part of the identity and the same name, and it is the only such candidate; hash identities and monitors without a name only match exactly. match is the candidate's identity, or null.",
+  "cases": [
+    {
+      "description": "the same identity matches, whatever the name",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000",
+        "name": "Odyssey G80SD"
+      },
+      "candidates": [
+        {
+          "identity": "AUS-2703-153957",
+          "name": "VG279Q1A"
+        },
+        {
+          "identity": "SAM-E030-H1AK500000"
+        }
+      ],
+      "match": "SAM-E030-H1AK500000"
+    },
+    {
+      "description": "the same monitor on another input: only the product code differs",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000",
+        "name": "Odyssey G80SD"
+      },
+      "candidates": [
+        {
+          "identity": "SAM-E035-H1AK500000",
+          "name": "Odyssey G80SD"
+        },
+        {
+          "identity": "AUS-2703-153957",
+          "name": "VG279Q1A"
+        }
+      ],
+      "match": "SAM-E035-H1AK500000"
+    },
+    {
+      "description": "numeric serials match the same way",
+      "reference": {
+        "identity": "AUS-2703-153957",
+        "name": "VG279Q1A"
+      },
+      "candidates": [
+        {
+          "identity": "AUS-2704-153957",
+          "name": "VG279Q1A"
+        }
+      ],
+      "match": "AUS-2704-153957"
+    },
+    {
+      "description": "another model with the same placeholder serial",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000",
+        "name": "Odyssey G80SD"
+      },
+      "candidates": [
+        {
+          "identity": "SAM-7F12-H1AK500000",
+          "name": "Odyssey G70D"
+        }
+      ],
+      "match": null
+    },
+    {
+      "description": "another manufacturer",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000",
+        "name": "Odyssey G80SD"
+      },
+      "candidates": [
+        {
+          "identity": "GSM-E030-H1AK500000",
+          "name": "Odyssey G80SD"
+        }
+      ],
+      "match": null
+    },
+    {
+      "description": "without a name nothing but the identity matches",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000"
+      },
+      "candidates": [
+        {
+          "identity": "SAM-E035-H1AK500000",
+          "name": "Odyssey G80SD"
+        }
+      ],
+      "match": null
+    },
+    {
+      "description": "two candidates are ambiguous",
+      "reference": {
+        "identity": "SAM-E030-H1AK500000",
+        "name": "Odyssey G80SD"
+      },
+      "candidates": [
+        {
+          "identity": "SAM-E035-H1AK500000",
+          "name": "Odyssey G80SD"
+        },
+        {
+          "identity": "SAM-E036-H1AK500000",
+          "name": "Odyssey G80SD"
+        }
+      ],
+      "match": null
+    },
+    {
+      "description": "hash identities only match exactly",
+      "reference": {
+        "identity": "edid-0a9ff86c1ebe11c5",
+        "name": "DELL U2720Q"
+      },
+      "candidates": [
+        {
+          "identity": "edid-24b3c8896da59ce4",
+          "name": "DELL U2720Q"
+        }
+      ],
+      "match": null
+    }
+  ]
+}

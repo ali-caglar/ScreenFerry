@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "type": "handoff",
+  "seq": 7,
+  "owners": [
+    {
+      "identity": "SAM-E030-H1AK500000",
+      "owner": "dc0ce633dbcc913dafafa4b89ac44d8ce683fdfc3f60c8bdf21213b9f2b534ba"
+    },
+    {
+      "identity": "AUS-2703-153957",
+      "owner": "5cd252fb0ce8932436faf8ccd1040981b89ee4ad6b9fe9e2a2b7e71aacb27cd3"
+    }
+  ]
+}

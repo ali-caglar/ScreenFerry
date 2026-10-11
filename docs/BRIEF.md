@@ -40,6 +40,8 @@ the user activates a **scene** such as "both monitors → Mac", "left → Mac, r
 ### 3.1 Monitor identity
 The same physical monitor is seen by several computers. Agents identify it by EDID
 (manufacturer + product code + serial number, falling back to a hash of the EDID block).
+A monitor may report another product code on each input, so agents also match by
+manufacturer, serial and model name (ADR 0007).
 
 ### 3.2 Input codes are learned, not hard-coded
 `0x60` values differ per monitor model. While a machine is the active source of a monitor,
@@ -55,7 +57,8 @@ accept DDC from the active input. Therefore the **current owner** performs the s
 3. B attaches X to its desktop.
 4. Ownership of X is updated and broadcast to the group.
 
-If step 1 fails, nothing else happens and the user is told why.
+If step 1 fails, nothing else happens and the user is told why. Agents learn which order applies from
+the input codes they share (ADR 0007).
 
 Monitors without DDC/CI but with an "auto source switch" setting use the reverse order
 (ADR 0005): the new owner attaches first, the monitor follows the new signal, then the old
@@ -67,8 +70,10 @@ owner detaches. Non-owners keep such monitors detached.
   keys; all later traffic is mutually authenticated and encrypted. Unpaired agents on the
   same network are ignored. Mechanism (ADR 0006): pinned self-signed P-256 keys, mutual
   TLS, and a six-digit code derived with a nonce commitment as in Bluetooth pairing.
-- Every scene change carries a monotonically increasing sequence number; the group applies
-  changes one at a time and the newest wins. A short lock prevents overlapping handoffs.
+- Activating a scene broadcasts the owners it wants with a Lamport sequence number; the
+  newest wins. Each agent then does its own steps of §3.3 as the others report progress
+  (ADR 0007). The owner of a monitor is the computer that has it attached; every other
+  computer keeps it detached.
 
 ### 3.5 Platform notes
 | Concern | macOS | Windows |
@@ -155,6 +160,7 @@ Each phase ends with its acceptance criteria met and merged to `main`.
 
 **Phase 4 — Scenes, hotkeys, UI**
 - Scene editor, global hotkeys, menu-bar/tray UI, the handoff sequence from §3.3.
+- Scenes and hotkeys are per computer, with one built-in scene per computer (ADR 0007).
 - Done when: one hotkey moves both monitors from Mac to PC and back, 20 times in a row.
 
 **Phase 5 — Distribution**

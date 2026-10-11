@@ -84,3 +84,5 @@ the monitor's setting is on.
   switch, so a monitor must stay attached a few seconds before it counts as switched. Sleep
   and wake on either machine kept the G8 detached there, and a waking Mac did not pull the
   G8 away from the PC.
+- 2026-10-11, **switch method.** Chosen automatically from the input codes the agents share,
+  without asking the user (ADR 0007).

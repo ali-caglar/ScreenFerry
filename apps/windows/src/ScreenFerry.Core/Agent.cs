@@ -283,6 +283,12 @@ public sealed class Agent : IDisposable
                 }
                 _peerMonitors[link.PeerId!] = monitors.Monitors;
                 break;
+            case HandoffMessage or HandoffFailedMessage:
+                if (!link.IsPaired)
+                {
+                    Reject(link, ProtocolErrorCode.NotPaired);
+                }
+                break;
             case ErrorMessage:
                 link.Connection.Close();
                 break;
