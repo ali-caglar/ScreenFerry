@@ -12,7 +12,7 @@ public enum ProtocolMessage: Equatable, Sendable {
     /// A type this version doesn't know; receivers ignore it.
     case unknown(type: String)
 
-    public static let currentVersion = 0
+    public static let currentVersion = 1
 
     public struct Hello: Equatable, Sendable {
         public var keyID: Data

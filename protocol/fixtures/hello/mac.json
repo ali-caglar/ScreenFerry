@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 0,
+  "protocolVersion": 1,
   "type": "hello",
   "keyId": "6c3e1b5a9f2d4e8b7a0c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708",
   "name": "Ali's MacBook Pro",

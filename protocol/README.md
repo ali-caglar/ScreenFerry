@@ -69,7 +69,7 @@ Both agents derive the same key for a physical monitor from its EDID base block
    lowercase hex.
 
 Known issue: some vendors put the same placeholder serial in every unit (Samsung uses
-`H1AK500000`), so two identical monitors can share a key. To be resolved in Phase 3.
+`H1AK500000`), so two identical monitors can share a key. To be resolved in Phase 4.
 
 ## Version history
 
@@ -77,3 +77,4 @@ Known issue: some vendors put the same placeholder serial in every unit (Samsung
 |---|---|---|
 | 0 | 2026-10-09 | Draft envelope. No compatibility guarantees until 1. |
 | 0 | 2026-10-10 | Draft `hello`, `pair.*`, `monitors`, `ping`, `error` and framing. Becomes 1 when Phase 3 ships. |
+| 1 | 2026-10-11 | First stable version: the v0 messages and framing, unchanged. |

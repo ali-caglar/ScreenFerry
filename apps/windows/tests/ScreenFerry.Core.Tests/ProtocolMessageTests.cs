@@ -27,10 +27,10 @@ public class ProtocolMessageTests
             ProtocolMessage.Decode("""{"protocolVersion":3,"type":"scene.future","x":1}"""u8));
 
     [Theory]
-    [InlineData("""{"protocolVersion":0,"type":"pair.confirm"}""")]
-    [InlineData("""{"protocolVersion":0,"type":"pair.nonce","nonce":"00"}""")]
-    [InlineData("""{"protocolVersion":0,"type":"pair.nonce","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}""")]
-    [InlineData("""{"protocolVersion":0,"type":"pair.nonce","nonce":7}""")]
+    [InlineData("""{"protocolVersion":1,"type":"pair.confirm"}""")]
+    [InlineData("""{"protocolVersion":1,"type":"pair.nonce","nonce":"00"}""")]
+    [InlineData("""{"protocolVersion":1,"type":"pair.nonce","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}""")]
+    [InlineData("""{"protocolVersion":1,"type":"pair.nonce","nonce":7}""")]
     [InlineData("""{"type":"ping"}""")]
     public void RejectsMissingFieldsAndBadHex(string json) =>
         Assert.Throws<JsonException>(() => ProtocolMessage.Decode(Encoding.UTF8.GetBytes(json)));

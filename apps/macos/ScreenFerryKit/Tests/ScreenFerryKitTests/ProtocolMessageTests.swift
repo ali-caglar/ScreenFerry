@@ -22,9 +22,9 @@ struct ProtocolMessageTests {
 
     @Test func rejectsMissingFieldsAndBadHex() {
         for json in [
-            #"{"protocolVersion":0,"type":"pair.confirm"}"#,
-            #"{"protocolVersion":0,"type":"pair.nonce","nonce":"00"}"#,
-            #"{"protocolVersion":0,"type":"pair.nonce","nonce":"\#(String(repeating: "A", count: 64))"}"#,
+            #"{"protocolVersion":1,"type":"pair.confirm"}"#,
+            #"{"protocolVersion":1,"type":"pair.nonce","nonce":"00"}"#,
+            #"{"protocolVersion":1,"type":"pair.nonce","nonce":"\#(String(repeating: "A", count: 64))"}"#,
         ] {
             #expect(throws: DecodingError.self) { try JSONDecoder().decode(ProtocolMessage.self, from: Data(json.utf8)) }
         }
