@@ -189,21 +189,20 @@ private struct HandoffStatusView: View {
 
     var body: some View {
         if let handoff = agent.handoff {
-            let names = Dictionary(controller.knownMonitors.map { ($0.identity, $0.name) }) { a, _ in a }
             VStack(alignment: .leading, spacing: 4) {
                 if !handoff.isFinished {
                     HStack(spacing: 6) {
                         ProgressView().controlSize(.small)
-                        Text("Moving \(handoff.pending.sorted().map { names[$0] ?? $0 }.joined(separator: ", "))…").font(.caption)
+                        Text("Moving \(handoff.pending.sorted().map(controller.monitorName).joined(separator: ", "))…").font(.caption)
                     }
                 } else if handoff.failures.isEmpty && handoff.pending.isEmpty {
                     Text("Monitors moved.").font(.caption).foregroundStyle(.secondary)
                 } else if handoff.failures.isEmpty {
-                    Text("Didn't finish moving \(handoff.pending.sorted().map { names[$0] ?? $0 }.joined(separator: ", ")).")
+                    Text("Didn't finish moving \(handoff.pending.sorted().map(controller.monitorName).joined(separator: ", ")).")
                         .font(.caption).foregroundStyle(.orange)
                 }
                 ForEach(handoff.failures.sorted(by: { $0.key < $1.key }), id: \.key) { identity, message in
-                    Text("\(names[identity] ?? identity) — \(message)")
+                    Text("\(controller.monitorName(identity)) — \(message)")
                         .font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
                 }
             }

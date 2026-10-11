@@ -45,7 +45,9 @@ public final class AgentController: ObservableObject, HandoffExecutor {
     private var probed: Set<String> = []
     private var monitorTimer: Timer?
     private var hotKeys: HotKeys?
-    private var subscription: AnyCancellable?
+    private var subscriptions: [AnyCancellable] = []
+    private let hud = HUD()
+    private var shownHandoff: Agent.HandoffStatus?
 
     public init() {
         do {
@@ -59,9 +61,12 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             try agent.start()
             self.agent = agent
             hotKeys = HotKeys { [weak self] index in self?.activateHotkey(index) }
-            subscription = agent.$peers.sink { [weak self] _ in
+            subscriptions.append(agent.$peers.sink { [weak self] _ in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.updateScenes() } }
-            }
+            })
+            subscriptions.append(agent.$handoff.sink { [weak self] status in
+                DispatchQueue.main.async { MainActor.assumeIsolated { self?.showProgress(status) } }
+            })
             refreshMonitors()
             monitorTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshMonitors() }
@@ -110,6 +115,7 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             activate(entry)
         } else {
             sceneError = "\(entry.scene.name) needs computers that aren't connected."
+            hud.show(entry.scene.name, detail: "Needs computers that aren't connected.", style: .failed)
         }
     }
 
@@ -153,6 +159,36 @@ public final class AgentController: ObservableObject, HandoffExecutor {
         if entries != scenes {
             scenes = entries
             hotKeys?.register(count: entries.count)
+        }
+    }
+
+    /// The EDID name of a monitor reported under this identity by any computer.
+    public func monitorName(_ identity: String) -> String {
+        let reported = localMonitors + (agent?.peers.flatMap(\.monitors) ?? [])
+        return reported.first { $0.identity == identity }?.name ?? identity
+    }
+
+    /// Shows a handoff's start, progress and outcome in the HUD, on every computer involved.
+    private func showProgress(_ status: Agent.HandoffStatus?) {
+        guard let status, status != shownHandoff else { return }
+        let previous = shownHandoff?.seq == status.seq ? shownHandoff : nil
+        shownHandoff = status
+        guard previous?.isFinished != true else { return }
+
+        let computerNames = Dictionary(computers.map { ($0.id, $0.name) }) { a, _ in a }
+        let moves = status.owners.sorted { $0.key < $1.key }.map { identity, owner in
+            "\(monitorName(identity)) → \(computerNames[owner] ?? "?")"
+        }
+        let title = moves.joined(separator: ", ")
+        if !status.failures.isEmpty {
+            let messages = status.failures.sorted { $0.key < $1.key }.map(\.value)
+            hud.show("Couldn't move monitors", detail: messages.joined(separator: "\n"), style: .failed)
+        } else if status.pending.isEmpty {
+            hud.show(previous == nil ? "Already in place" : title, detail: previous == nil ? title : nil, style: .done)
+        } else if status.isExpired {
+            hud.show("Didn't finish", detail: title, style: .failed)
+        } else if previous == nil {
+            hud.show(title, detail: "Moving… a monitor without DDC/CI may need up to 25 s.", style: .progress)
         }
     }
 
