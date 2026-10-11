@@ -8,8 +8,9 @@ Swift 6 (language mode 6), SwiftUI `MenuBarExtra`, minimum macOS 13 (ADR 0002).
   needs the app bundle. Targets: `ScreenFerryKit` (portable logic: protocol, pairing, EDID,
   DDC/CI packets), `ScreenFerryDDC` (IOKit/private-API DDC transport), `ScreenFerryDisplays`
   (private SkyLight detach/attach), `ScreenFerryNet` (agent identity, TLS, DNS-SD, pairing
-  over the wire; depends on Apple's `swift-certificates`) and `ScreenFerryAgent` (the menu-bar
-  model and SwiftUI views; the app target links only this). Keep private APIs out of the
+  over the wire, handoff coordination; depends on Apple's `swift-certificates`) and
+  `ScreenFerryAgent` (the menu-bar model, scenes, Carbon hotkeys ⌃⌥⌘1–9, the handoff
+  executor and SwiftUI views; the app target links only this). Keep private APIs out of the
   portable targets. `Package.resolved` is committed.
 - `ScreenFerry/` — app target: `ScreenFerryApp.swift` and `Info.plist` (Bonjour service type;
   the rest of the plist is generated from build settings).

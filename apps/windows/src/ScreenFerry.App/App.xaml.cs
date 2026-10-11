@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Interop;
 using ScreenFerry.Core;
 using ScreenFerry.Windows;
 using Forms = System.Windows.Forms;
@@ -13,6 +14,10 @@ public partial class App : Application
 {
     private Forms.NotifyIcon? _trayIcon;
     private Agent? _agent;
+    private Controller? _controller;
+    private int _hotkeyCount = -1;
+    private HudWindow? _hud;
+    private HandoffStatus? _shownHandoff;
     private Timer? _monitorTimer;
     private MainWindow? _window;
     private bool _promptShown;
@@ -46,20 +51,24 @@ public partial class App : Application
             var discovery = new DnsSdDiscovery();
             _agent = new Agent(WindowsAgentIdentity.LoadOrCreate(), Environment.MachineName, version.Split('+')[0],
                 PairedPeerStore.Standard(), discovery);
+            _controller = new Controller(_agent);
             _agent.Start();
             _agent.Changed += () => Dispatcher.BeginInvoke(OnAgentChanged);
-            _monitorTimer = new Timer(_ => _agent.SetLocalMonitors(LocalMonitors.Current()), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-            _window = new MainWindow(_agent, () => discovery.Error);
+            _controller.Changed += () => Dispatcher.BeginInvoke(OnAgentChanged);
+            _monitorTimer = new Timer(_ => _controller.Refresh(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            ComponentDispatcher.ThreadFilterMessage += OnThreadMessage;
+            _window = new MainWindow(_agent, _controller, () => discovery.Error);
         }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or System.Net.Sockets.SocketException or System.IO.IOException or UnauthorizedAccessException)
         {
             startError = ex.Message;
         }
-        _window ??= new MainWindow(null, () => startError);
+        _window ??= new MainWindow(null, null, () => startError);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        GlobalHotKeys.Unregister();
         _monitorTimer?.Dispose();
         _agent?.Dispose();
         _trayIcon?.Dispose();
@@ -73,9 +82,69 @@ public partial class App : Application
         _window?.Activate();
     }
 
+    /// <summary>Shows a handoff's start, progress and outcome in the HUD, on every computer involved.</summary>
+    private void ShowProgress()
+    {
+        if (_agent?.CurrentHandoff is not { } status || _controller is null || Same(status, _shownHandoff))
+        {
+            if (_controller?.TakeHotkeyError() is { } error)
+            {
+                Hud().Show(error.Scene, error.Message, HudWindow.Kind.Failed);
+            }
+            return;
+        }
+        var previous = _shownHandoff?.Seq == status.Seq ? _shownHandoff : null;
+        _shownHandoff = status;
+        if (previous?.IsFinished == true)
+        {
+            return;
+        }
+        var computers = _controller.Computers.ToDictionary(c => c.Id, c => c.Name);
+        var title = string.Join(", ", status.Owners.OrderBy(o => o.Key, StringComparer.Ordinal)
+            .Select(o => $"{_controller.MonitorName(o.Key)} → {computers.GetValueOrDefault(o.Value, "?")}"));
+        if (status.Failures.Count > 0)
+        {
+            Hud().Show("Couldn't move monitors", string.Join("\n", status.Failures.OrderBy(f => f.Key, StringComparer.Ordinal).Select(f => f.Value)), HudWindow.Kind.Failed);
+        }
+        else if (status.Pending.Count == 0)
+        {
+            Hud().Show(previous is null ? "Already in place" : title, previous is null ? title : null, HudWindow.Kind.Done);
+        }
+        else if (status.IsExpired)
+        {
+            Hud().Show("Didn't finish", title, HudWindow.Kind.Failed);
+        }
+        else if (previous is null)
+        {
+            Hud().Show(title, "Moving… a monitor without DDC/CI may need up to 25 s.", HudWindow.Kind.Progress);
+        }
+    }
+
+    private static bool Same(HandoffStatus a, HandoffStatus? b) =>
+        b is not null && a.Seq == b.Seq && a.IsExpired == b.IsExpired
+        && a.Pending.SetEquals(b.Pending) && a.Failures.Count == b.Failures.Count;
+
+    private HudWindow Hud() => _hud ??= new HudWindow();
+
+    private void OnThreadMessage(ref MSG msg, ref bool handled)
+    {
+        if (msg.message == GlobalHotKeys.WmHotKey && _controller is not null)
+        {
+            _controller.ActivateHotkey((int)msg.wParam);
+            handled = true;
+        }
+    }
+
     private void OnAgentChanged()
     {
         _window?.Render();
+        ShowProgress();
+        var hotkeys = _controller?.Scenes().Count ?? 0;
+        if (hotkeys != _hotkeyCount)
+        {
+            GlobalHotKeys.Register(hotkeys);
+            _hotkeyCount = hotkeys;
+        }
         var prompt = _agent?.PairingPrompt;
         if (prompt is not null && !_promptShown)
         {

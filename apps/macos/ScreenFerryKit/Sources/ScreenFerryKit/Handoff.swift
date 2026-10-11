@@ -1,3 +1,5 @@
+import Foundation
+
 /// What one agent does next for one monitor of a handoff (ADR 0007, `protocol/test-vectors/handoff.json`).
 public enum HandoffStep: Equatable, Sendable {
     case none
@@ -43,5 +45,38 @@ public enum Handoff {
     /// Attached on the target and nowhere else.
     public static func isDone(target: String, states: [String: State]) -> Bool {
         states[target]?.attached == true && !states.contains { $0.key != target && $0.value.attached }
+    }
+}
+
+/// The handoff an agent is working towards.
+public struct HandoffTarget: Equatable, Sendable {
+    public var seq: Int
+    /// Key ID (hex) of the agent that started it.
+    public var origin: String
+    /// Monitor identity → owner key ID (hex).
+    public var owners: [String: String]
+    public var startedAt: Date
+}
+
+/// Lamport ordering of handoffs: the newest `(seq, origin)` wins (ADR 0007).
+public struct HandoffClock: Sendable {
+    public private(set) var highestSeq = 0
+    public private(set) var target: HandoffTarget?
+
+    public init() {}
+
+    public mutating func start(owners: [String: String], origin: String, now: Date = .now) -> HandoffTarget {
+        highestSeq += 1
+        let target = HandoffTarget(seq: highestSeq, origin: origin, owners: owners, startedAt: now)
+        self.target = target
+        return target
+    }
+
+    /// Returns whether the received handoff replaced the current target.
+    public mutating func receive(seq: Int, owners: [String: String], from origin: String, now: Date = .now) -> Bool {
+        highestSeq = max(highestSeq, seq)
+        if let target, (seq, origin) <= (target.seq, target.origin) { return false }
+        target = HandoffTarget(seq: seq, origin: origin, owners: owners, startedAt: now)
+        return true
     }
 }
