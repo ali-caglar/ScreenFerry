@@ -16,6 +16,8 @@ public partial class App : Application
     private Agent? _agent;
     private Controller? _controller;
     private int _hotkeyCount = -1;
+    private HudWindow? _hud;
+    private HandoffStatus? _shownHandoff;
     private Timer? _monitorTimer;
     private MainWindow? _window;
     private bool _promptShown;
@@ -80,6 +82,50 @@ public partial class App : Application
         _window?.Activate();
     }
 
+    /// <summary>Shows a handoff's start, progress and outcome in the HUD, on every computer involved.</summary>
+    private void ShowProgress()
+    {
+        if (_agent?.CurrentHandoff is not { } status || _controller is null || Same(status, _shownHandoff))
+        {
+            if (_controller?.TakeHotkeyError() is { } error)
+            {
+                Hud().Show(error.Scene, error.Message, HudWindow.Kind.Failed);
+            }
+            return;
+        }
+        var previous = _shownHandoff?.Seq == status.Seq ? _shownHandoff : null;
+        _shownHandoff = status;
+        if (previous?.IsFinished == true)
+        {
+            return;
+        }
+        var computers = _controller.Computers.ToDictionary(c => c.Id, c => c.Name);
+        var title = string.Join(", ", status.Owners.OrderBy(o => o.Key, StringComparer.Ordinal)
+            .Select(o => $"{_controller.MonitorName(o.Key)} → {computers.GetValueOrDefault(o.Value, "?")}"));
+        if (status.Failures.Count > 0)
+        {
+            Hud().Show("Couldn't move monitors", string.Join("\n", status.Failures.OrderBy(f => f.Key, StringComparer.Ordinal).Select(f => f.Value)), HudWindow.Kind.Failed);
+        }
+        else if (status.Pending.Count == 0)
+        {
+            Hud().Show(previous is null ? "Already in place" : title, previous is null ? title : null, HudWindow.Kind.Done);
+        }
+        else if (status.IsExpired)
+        {
+            Hud().Show("Didn't finish", title, HudWindow.Kind.Failed);
+        }
+        else if (previous is null)
+        {
+            Hud().Show(title, "Moving… a monitor without DDC/CI may need up to 25 s.", HudWindow.Kind.Progress);
+        }
+    }
+
+    private static bool Same(HandoffStatus a, HandoffStatus? b) =>
+        b is not null && a.Seq == b.Seq && a.IsExpired == b.IsExpired
+        && a.Pending.SetEquals(b.Pending) && a.Failures.Count == b.Failures.Count;
+
+    private HudWindow Hud() => _hud ??= new HudWindow();
+
     private void OnThreadMessage(ref MSG msg, ref bool handled)
     {
         if (msg.message == GlobalHotKeys.WmHotKey && _controller is not null)
@@ -92,6 +138,7 @@ public partial class App : Application
     private void OnAgentChanged()
     {
         _window?.Render();
+        ShowProgress();
         var hotkeys = _controller?.Scenes().Count ?? 0;
         if (hotkeys != _hotkeyCount)
         {

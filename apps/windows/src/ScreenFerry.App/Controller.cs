@@ -18,6 +18,7 @@ internal sealed class Controller : IHandoffExecutor
     private readonly HashSet<string> _probed = [];
     private readonly List<Scene> _custom;
     private readonly Dictionary<string, int> _codes;
+    private (string Scene, string Message)? _hotkeyError;
 
     public Controller(Agent agent)
     {
@@ -71,9 +72,25 @@ internal sealed class Controller : IHandoffExecutor
     {
         if (Scenes().FirstOrDefault(e => e.Hotkey == digit) is { } entry)
         {
+            if (!entry.IsAvailable)
+            {
+                _hotkeyError = (entry.Scene.Name, "Needs computers that aren't connected.");
+            }
             Activate(entry);
         }
     }
+
+    /// <summary>The unavailable scene a hotkey asked for since the last call, if any.</summary>
+    public (string Scene, string Message)? TakeHotkeyError()
+    {
+        var error = _hotkeyError;
+        _hotkeyError = null;
+        return error;
+    }
+
+    /// <summary>The EDID name of a monitor reported under this identity by any computer.</summary>
+    public string MonitorName(string identity) =>
+        LocalMonitors.Concat(_agent.Peers.SelectMany(p => p.Monitors)).FirstOrDefault(m => m.Identity == identity)?.Name ?? identity;
 
     public void AddScene(string name, IReadOnlyDictionary<string, string> owners) =>
         ChangeScenes(scenes => scenes.Add(new Scene(Guid.NewGuid().ToString(), name, owners)));

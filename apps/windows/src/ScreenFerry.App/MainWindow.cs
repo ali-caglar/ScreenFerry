@@ -173,8 +173,7 @@ public sealed class MainWindow : Window
         {
             return;
         }
-        var names = _controller!.KnownMonitors().ToDictionary(m => m.Identity, m => m.Name);
-        string List(IEnumerable<string> ids) => string.Join(", ", ids.Order(StringComparer.Ordinal).Select(id => names.GetValueOrDefault(id, id)));
+        string List(IEnumerable<string> ids) => string.Join(", ", ids.Order(StringComparer.Ordinal).Select(_controller!.MonitorName));
         if (!handoff.IsFinished)
         {
             Add(Caption($"Moving {List(handoff.Pending)}…"));
@@ -189,7 +188,7 @@ public sealed class MainWindow : Window
         }
         foreach (var (identity, message) in handoff.Failures.OrderBy(f => f.Key, StringComparer.Ordinal))
         {
-            Add(Caption($"{names.GetValueOrDefault(identity, identity)} — {message}", Brushes.Firebrick));
+            Add(Caption($"{_controller!.MonitorName(identity)} — {message}", Brushes.Firebrick));
         }
     }
 
