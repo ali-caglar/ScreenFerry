@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Interop;
 using ScreenFerry.Core;
 using ScreenFerry.Windows;
 using Forms = System.Windows.Forms;
@@ -13,6 +14,8 @@ public partial class App : Application
 {
     private Forms.NotifyIcon? _trayIcon;
     private Agent? _agent;
+    private Controller? _controller;
+    private int _hotkeyCount = -1;
     private Timer? _monitorTimer;
     private MainWindow? _window;
     private bool _promptShown;
@@ -46,20 +49,24 @@ public partial class App : Application
             var discovery = new DnsSdDiscovery();
             _agent = new Agent(WindowsAgentIdentity.LoadOrCreate(), Environment.MachineName, version.Split('+')[0],
                 PairedPeerStore.Standard(), discovery);
+            _controller = new Controller(_agent);
             _agent.Start();
             _agent.Changed += () => Dispatcher.BeginInvoke(OnAgentChanged);
-            _monitorTimer = new Timer(_ => _agent.SetLocalMonitors(LocalMonitors.Current()), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
-            _window = new MainWindow(_agent, () => discovery.Error);
+            _controller.Changed += () => Dispatcher.BeginInvoke(OnAgentChanged);
+            _monitorTimer = new Timer(_ => _controller.Refresh(), null, TimeSpan.Zero, TimeSpan.FromSeconds(5));
+            ComponentDispatcher.ThreadFilterMessage += OnThreadMessage;
+            _window = new MainWindow(_agent, _controller, () => discovery.Error);
         }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or System.Net.Sockets.SocketException or System.IO.IOException or UnauthorizedAccessException)
         {
             startError = ex.Message;
         }
-        _window ??= new MainWindow(null, () => startError);
+        _window ??= new MainWindow(null, null, () => startError);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        GlobalHotKeys.Unregister();
         _monitorTimer?.Dispose();
         _agent?.Dispose();
         _trayIcon?.Dispose();
@@ -73,9 +80,24 @@ public partial class App : Application
         _window?.Activate();
     }
 
+    private void OnThreadMessage(ref MSG msg, ref bool handled)
+    {
+        if (msg.message == GlobalHotKeys.WmHotKey && _controller is not null)
+        {
+            _controller.ActivateHotkey((int)msg.wParam);
+            handled = true;
+        }
+    }
+
     private void OnAgentChanged()
     {
         _window?.Render();
+        var hotkeys = _controller?.Scenes().Count ?? 0;
+        if (hotkeys != _hotkeyCount)
+        {
+            GlobalHotKeys.Register(hotkeys);
+            _hotkeyCount = hotkeys;
+        }
         var prompt = _agent?.PairingPrompt;
         if (prompt is not null && !_promptShown)
         {

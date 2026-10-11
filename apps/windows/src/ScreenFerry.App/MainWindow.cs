@@ -15,12 +15,14 @@ namespace ScreenFerry.App;
 public sealed class MainWindow : Window
 {
     private readonly Agent? _agent;
+    private readonly Controller? _controller;
     private readonly Func<string?> _error;
     private readonly StackPanel _content = new() { Margin = new Thickness(16) };
 
-    public MainWindow(Agent? agent, Func<string?> error)
+    internal MainWindow(Agent? agent, Controller? controller, Func<string?> error)
     {
         _agent = agent;
+        _controller = controller;
         _error = error;
         Title = "ScreenFerry";
         Width = 360;
@@ -41,7 +43,7 @@ public sealed class MainWindow : Window
     {
         _content.Children.Clear();
         Add(new TextBlock { Text = "ScreenFerry", FontSize = 16, FontWeight = FontWeights.SemiBold });
-        if (_agent is null)
+        if (_agent is null || _controller is null)
         {
             Add(Caption($"ScreenFerry couldn't start: {_error()}", Brushes.Firebrick));
             return;
@@ -56,10 +58,22 @@ public sealed class MainWindow : Window
         var paired = _agent.Peers.Where(p => p.IsPaired).ToList();
         if (paired.Count > 0)
         {
+            RenderScenes();
+            RenderHandoff();
+        }
+        if (_controller.Ambiguous.Count > 0)
+        {
+            Add(Caption($"Two connected monitors report the same identity ({string.Join(", ", _controller.Ambiguous)}), so ScreenFerry can't tell them apart and leaves them out.", Brushes.DarkOrange));
+        }
+        if (paired.Count > 0)
+        {
             Add(Heading("Computers"));
+            RenderComputer($"{_agent.Name} (this PC)", null, _controller.LocalMonitors, null);
             foreach (var peer in paired)
             {
-                RenderPeer(peer);
+                var forget = new MenuItem { Header = $"Forget {peer.Name}" };
+                forget.Click += (_, _) => _agent.Unpair(peer.Id);
+                RenderComputer(peer.Name, peer.IsConnected, peer.Monitors, new ContextMenu { Items = { forget } });
             }
         }
 
@@ -114,21 +128,88 @@ public sealed class MainWindow : Window
         });
     }
 
-    private void RenderPeer(AgentPeer peer)
+    private void RenderScenes()
+    {
+        Add(Heading("Scenes"));
+        foreach (var entry in _controller!.Scenes())
+        {
+            var row = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
+            if (entry.Hotkey is { } digit)
+            {
+                var hotkey = Caption($"Ctrl+Alt+Shift+{digit}");
+                hotkey.VerticalAlignment = VerticalAlignment.Center;
+                DockPanel.SetDock(hotkey, Dock.Right);
+                row.Children.Add(hotkey);
+            }
+            var activate = Button(entry.Scene.Name, () => _controller.Activate(entry));
+            activate.Margin = new Thickness(0);
+            activate.IsEnabled = entry.IsAvailable;
+            row.Children.Add(activate);
+            if (!entry.IsBuiltIn)
+            {
+                var delete = new MenuItem { Header = $"Delete {entry.Scene.Name}" };
+                delete.Click += (_, _) => _controller.DeleteScene(entry.Scene.Id);
+                row.ContextMenu = new ContextMenu { Items = { delete } };
+            }
+            Add(row);
+        }
+        Add(Button("New Scene…", () =>
+        {
+            var editor = new SceneEditorWindow(_controller.KnownMonitors(), _controller.Computers) { Owner = this };
+            if (editor.ShowDialog() == true)
+            {
+                _controller.AddScene(editor.SceneName, editor.Owners);
+            }
+        }));
+        if (_controller.SceneError is { } error)
+        {
+            Add(Caption(error, Brushes.Firebrick));
+        }
+    }
+
+    private void RenderHandoff()
+    {
+        if (_agent!.CurrentHandoff is not { } handoff)
+        {
+            return;
+        }
+        var names = _controller!.KnownMonitors().ToDictionary(m => m.Identity, m => m.Name);
+        string List(IEnumerable<string> ids) => string.Join(", ", ids.Order(StringComparer.Ordinal).Select(id => names.GetValueOrDefault(id, id)));
+        if (!handoff.IsFinished)
+        {
+            Add(Caption($"Moving {List(handoff.Pending)}…"));
+        }
+        else if (handoff.Failures.Count == 0 && handoff.Pending.Count == 0)
+        {
+            Add(Caption("Monitors moved."));
+        }
+        else if (handoff.Failures.Count == 0)
+        {
+            Add(Caption($"Didn't finish moving {List(handoff.Pending)}.", Brushes.DarkOrange));
+        }
+        foreach (var (identity, message) in handoff.Failures.OrderBy(f => f.Key, StringComparer.Ordinal))
+        {
+            Add(Caption($"{names.GetValueOrDefault(identity, identity)} — {message}", Brushes.Firebrick));
+        }
+    }
+
+    /// <param name="connected">Null for this PC.</param>
+    private void RenderComputer(string name, bool? connected, IReadOnlyList<MonitorStatus> monitors, ContextMenu? menu)
     {
         var row = new DockPanel { Margin = new Thickness(0, 4, 0, 0) };
-        var dot = new Ellipse { Width = 8, Height = 8, Margin = new Thickness(0, 0, 6, 0), Fill = peer.IsConnected ? Brushes.SeaGreen : Brushes.LightGray };
+        var dot = new Ellipse { Width = 8, Height = 8, Margin = new Thickness(0, 0, 6, 0), Fill = connected != false ? Brushes.SeaGreen : Brushes.LightGray };
         DockPanel.SetDock(dot, Dock.Left);
-        var status = Caption(peer.IsConnected ? "Connected" : "Offline");
-        DockPanel.SetDock(status, Dock.Right);
         row.Children.Add(dot);
-        row.Children.Add(status);
-        row.Children.Add(new TextBlock { Text = peer.Name });
-        var forget = new MenuItem { Header = $"Forget {peer.Name}" };
-        forget.Click += (_, _) => _agent!.Unpair(peer.Id);
-        row.ContextMenu = new ContextMenu { Items = { forget } };
+        if (connected is { } isConnected)
+        {
+            var status = Caption(isConnected ? "Connected" : "Offline");
+            DockPanel.SetDock(status, Dock.Right);
+            row.Children.Add(status);
+        }
+        row.Children.Add(new TextBlock { Text = name });
+        row.ContextMenu = menu;
         Add(row);
-        foreach (var monitor in peer.Monitors)
+        foreach (var monitor in monitors)
         {
             var line = new DockPanel { Margin = new Thickness(14, 2, 0, 0) };
             var state = Caption(monitor.Attached ? "in use" : "released");

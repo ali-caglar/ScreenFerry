@@ -27,7 +27,25 @@ public interface IPeerDiscovery : IDisposable
     void Browse();
 }
 
-/// <summary>Finds, pairs with and stays connected to the other computers' agents (ADR 0006). Thread-safe.</summary>
+/// <summary>Does this computer's steps of a handoff (ADR 0007).</summary>
+public interface IHandoffExecutor
+{
+    /// <summary>Attaches or releases the monitor; the agent learns the result from <see cref="Agent.SetLocalMonitors"/>.</summary>
+    Task PerformAsync(HandoffStep action, string identity);
+}
+
+/// <summary>A handoff's progress. <paramref name="Failures"/>: identity → why, prefixed with the computer's name.</summary>
+public sealed record HandoffStatus(
+    long Seq,
+    IReadOnlyDictionary<string, string> Owners,
+    IReadOnlySet<string> Pending,
+    IReadOnlyDictionary<string, string> Failures,
+    bool IsExpired)
+{
+    public bool IsFinished => Pending.Count == 0 || IsExpired || Pending.All(Failures.ContainsKey);
+}
+
+/// <summary>Finds, pairs with and stays connected to the other computers' agents (ADR 0006), and moves monitors between them (ADR 0007). Thread-safe.</summary>
 public sealed class Agent : IDisposable
 {
     public static readonly TimeSpan PairingWindow = TimeSpan.FromMinutes(2);
@@ -42,6 +60,10 @@ public sealed class Agent : IDisposable
     private readonly Dictionary<string, IReadOnlyList<MonitorStatus>> _peerMonitors = [];
     private readonly List<Link> _links = [];
     private readonly HashSet<string> _resolving = [];
+    private readonly HandoffClock _clock = new();
+    private readonly HashSet<string> _inFlight = [];
+    private readonly Dictionary<string, string> _failures = [];
+    private readonly Dictionary<string, DateTimeOffset> _targetAttachedSince = [];
     private Dictionary<string, (DiscoveredPeer Peer, DateTimeOffset Since)> _discovered = [];
     private IReadOnlyList<MonitorStatus> _localMonitors = [];
     private DateTimeOffset? _pairingDeadline;
@@ -77,6 +99,13 @@ public sealed class Agent : IDisposable
     public string? PairingResult { get; private set; }
 
     public int? ListenerPort => (_listener?.LocalEndpoint as IPEndPoint)?.Port;
+
+    public HandoffStatus? CurrentHandoff { get; private set; }
+
+    public IHandoffExecutor? Executor { get; set; }
+
+    /// <summary>How long a monitor stays attached on its new owner before the old owner releases it.</summary>
+    public TimeSpan Settle { get; set; } = Handoff.Settle;
 
     public void Start(int port = 0)
     {
@@ -164,6 +193,19 @@ public sealed class Agent : IDisposable
         {
             link.Send(new MonitorsMessage(monitors));
         }
+        AdvanceHandoff();
+    });
+
+    /// <summary>Moves monitors to the given owners (identity → key ID hex) and tells every connected peer.</summary>
+    public void Activate(IReadOnlyDictionary<string, string> owners) => Mutate(() =>
+    {
+        var target = _clock.Start(owners, Identity.KeyIdHex, DateTimeOffset.UtcNow);
+        ResetHandoff();
+        foreach (var link in _links.Where(l => l.IsPaired))
+        {
+            link.Send(HandoffMessageFor(target));
+        }
+        AdvanceHandoff();
     });
 
     private void Mutate(Action change)
@@ -245,6 +287,7 @@ public sealed class Agent : IDisposable
     private void OnClosed(Link link)
     {
         _links.Remove(link);
+        AdvanceHandoff();
         if (link.Pairing is not null)
         {
             PairingPrompt = null;
@@ -282,11 +325,39 @@ public sealed class Agent : IDisposable
                     return;
                 }
                 _peerMonitors[link.PeerId!] = monitors.Monitors;
+                AdvanceHandoff();
                 break;
-            case HandoffMessage or HandoffFailedMessage:
+            case HandoffMessage handoff:
                 if (!link.IsPaired)
                 {
                     Reject(link, ProtocolErrorCode.NotPaired);
+                    return;
+                }
+                var owners = new Dictionary<string, string>();
+                foreach (var owner in handoff.Owners)
+                {
+                    var ownerId = Convert.ToHexStringLower(owner.Owner);
+                    if (ownerId == Identity.KeyIdHex || _paired.ContainsKey(ownerId))
+                    {
+                        owners.TryAdd(owner.Identity, ownerId);
+                    }
+                }
+                if (_clock.Receive(handoff.Seq, owners, link.PeerId!, DateTimeOffset.UtcNow))
+                {
+                    ResetHandoff();
+                    AdvanceHandoff();
+                }
+                break;
+            case HandoffFailedMessage failed:
+                if (!link.IsPaired)
+                {
+                    Reject(link, ProtocolErrorCode.NotPaired);
+                    return;
+                }
+                if (failed.Seq == _clock.Target?.Seq)
+                {
+                    _failures[failed.Identity] = $"{link.Hello.Name}: {failed.Message}";
+                    AdvanceHandoff();
                 }
                 break;
             case ErrorMessage:
@@ -335,6 +406,10 @@ public sealed class Agent : IDisposable
         }
         link.IsPaired = true;
         link.Send(new MonitorsMessage(_localMonitors));
+        if (_clock.Target is { } target && CurrentHandoff is { IsFinished: false })
+        {
+            link.Send(HandoffMessageFor(target));
+        }
     }
 
     private void Handle(IReadOnlyList<PairingEvent> events, Link link)
@@ -382,6 +457,7 @@ public sealed class Agent : IDisposable
         {
             SetPairingModeLocked(false);
         }
+        AdvanceHandoff();
         foreach (var link in _links)
         {
             if (now - link.Connection.LastReceived > s_silenceLimit)
@@ -405,6 +481,143 @@ public sealed class Agent : IDisposable
             }
         }
     });
+
+    private static HandoffMessage HandoffMessageFor(HandoffTarget target) =>
+        new(target.Seq, [.. target.Owners.OrderBy(o => o.Key, StringComparer.Ordinal).Select(o => new HandoffOwner(o.Key, Convert.FromHexString(o.Value)))]);
+
+    private void ResetHandoff()
+    {
+        _failures.Clear();
+        _targetAttachedSince.Clear();
+    }
+
+    /// <summary>What each connected computer, including this one, reports for the monitor, and this computer's identity for it.</summary>
+    private (Dictionary<string, HandoffState> States, string? LocalIdentity) StatesFor(string monitor)
+    {
+        var reports = new List<(string Id, IReadOnlyList<MonitorStatus> Monitors)> { (Identity.KeyIdHex, _localMonitors) };
+        reports.AddRange(_links.Where(l => l.IsPaired && l.PeerId is not null)
+            .Select(l => (l.PeerId!, _peerMonitors.GetValueOrDefault(l.PeerId!) ?? [])));
+        var states = new Dictionary<string, HandoffState>();
+        string? localIdentity = null;
+        if (reports.SelectMany(r => r.Monitors).FirstOrDefault(m => m.Identity == monitor) is not { } reference)
+        {
+            return (states, null);
+        }
+        foreach (var (id, monitors) in reports)
+        {
+            if (MonitorMatch.Find(reference, monitors) is { } match)
+            {
+                states[id] = new HandoffState(match.Attached, match.InputCode);
+                if (id == Identity.KeyIdHex)
+                {
+                    localIdentity = match.Identity;
+                }
+            }
+        }
+        return (states, localIdentity);
+    }
+
+    private void AdvanceHandoff()
+    {
+        if (_clock.Target is not { } target)
+        {
+            return;
+        }
+        var now = DateTimeOffset.UtcNow;
+        var isExpired = now - target.StartedAt > Handoff.Expiry;
+        var pending = new HashSet<string>();
+        foreach (var (monitor, owner) in target.Owners.OrderBy(o => o.Key, StringComparer.Ordinal))
+        {
+            var (states, localIdentity) = StatesFor(monitor);
+            if (states.TryGetValue(owner, out var state) && state.Attached)
+            {
+                _targetAttachedSince.TryAdd(monitor, now);
+            }
+            else
+            {
+                _targetAttachedSince.Remove(monitor);
+            }
+            if (Handoff.IsDone(owner, states))
+            {
+                continue;
+            }
+            pending.Add(monitor);
+            if (isExpired || _failures.ContainsKey(monitor) || _inFlight.Contains(monitor))
+            {
+                continue;
+            }
+            var step = Handoff.Step(Identity.KeyIdHex, owner, states);
+            switch (step.Kind)
+            {
+                case HandoffStepKind.Missing:
+                    Fail(monitor, target.Seq, "This computer doesn't see the monitor.");
+                    break;
+                case HandoffStepKind.ReleaseAfterSettle:
+                    var remaining = Settle - (now - _targetAttachedSince.GetValueOrDefault(monitor, now));
+                    if (remaining > TimeSpan.Zero)
+                    {
+                        _ = Task.Delay(remaining).ContinueWith(_ => Mutate(AdvanceHandoff), TaskScheduler.Default);
+                    }
+                    else
+                    {
+                        Perform(step, monitor, localIdentity!, target.Seq);
+                    }
+                    break;
+                case HandoffStepKind.Attach or HandoffStepKind.SwitchAndRelease:
+                    Perform(step, monitor, localIdentity!, target.Seq);
+                    break;
+            }
+        }
+        CurrentHandoff = new HandoffStatus(target.Seq, target.Owners, pending, new Dictionary<string, string>(_failures), isExpired);
+    }
+
+    /// <param name="localIdentity">This computer's identity for <paramref name="monitor"/>, which may differ (ADR 0007).</param>
+    private void Perform(HandoffStep step, string monitor, string localIdentity, long seq)
+    {
+        if (Executor is not { } executor)
+        {
+            Fail(monitor, seq, "This computer can't move monitors.");
+            return;
+        }
+        _inFlight.Add(monitor);
+        _ = Task.Run(async () =>
+        {
+            string? error = null;
+            try
+            {
+                await executor.PerformAsync(step, localIdentity).ConfigureAwait(false);
+            }
+#pragma warning disable CA1031 // Any failure of a step is reported to the user and the peers.
+            catch (Exception e)
+#pragma warning restore CA1031
+            {
+                error = e.Message;
+            }
+            Mutate(() =>
+            {
+                _inFlight.Remove(monitor);
+                if (error is not null)
+                {
+                    Fail(monitor, seq, error);
+                }
+                AdvanceHandoff();
+            });
+        });
+    }
+
+    private void Fail(string monitor, long seq, string message)
+    {
+        if (seq != _clock.Target?.Seq)
+        {
+            return;
+        }
+        _failures[monitor] = $"{Name}: {message}";
+        var text = message.Length > 256 ? message[..256] : message;
+        foreach (var link in _links.Where(l => l.IsPaired))
+        {
+            link.Send(new HandoffFailedMessage(seq, monitor, text));
+        }
+    }
 
     private async Task ResolveAndDialAsync(DiscoveredPeer peer)
     {

@@ -73,3 +73,20 @@ public class MonitorMatchTests
         Assert.Equal(expected.ValueKind == JsonValueKind.Null ? null : expected.GetString(), match?.Identity);
     }
 }
+
+public class HandoffClockTests
+{
+    [Fact]
+    public void NewestWins()
+    {
+        var clock = new HandoffClock();
+        var now = DateTimeOffset.UtcNow;
+        Assert.Equal(1, clock.Start(new Dictionary<string, string> { ["G8"] = "a" }, "a", now).Seq);
+        Assert.False(clock.Receive(1, new Dictionary<string, string> { ["G8"] = "b" }, "a", now));
+        Assert.True(clock.Receive(1, new Dictionary<string, string> { ["G8"] = "b" }, "b", now));
+        Assert.False(clock.Receive(1, new Dictionary<string, string> { ["G8"] = "a" }, "a", now));
+        Assert.True(clock.Receive(4, new Dictionary<string, string> { ["G8"] = "a" }, "a", now));
+        Assert.Equal("a", clock.Target!.Owners["G8"]);
+        Assert.Equal(5, clock.Start(new Dictionary<string, string>(), "b", now).Seq);
+    }
+}
