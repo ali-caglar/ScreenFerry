@@ -72,6 +72,16 @@ jobs:
           name: ddc-probe-windows-x64
           path: probe/ddc-probe.exe
           retention-days: 14
+      - name: Publish ScreenFerry
+        run: |
+          dotnet publish apps/windows/src/ScreenFerry.App -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" -o app
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: screenferry-windows-x64
+          path: app/ScreenFerry.exe
+          retention-days: 14
 
   protocol:
     name: Protocol fixtures
