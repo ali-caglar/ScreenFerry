@@ -57,11 +57,14 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
-      - name: Package
+      # Ad-hoc, until Developer ID signing exists (ADR 0008).
+      - name: Sign ad hoc and package
         run: |
+          app=build/DerivedData/Build/Products/Release/ScreenFerry.app
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
           mkdir -p dist
-          ditto -c -k --keepParent build/DerivedData/Build/Products/Release/ScreenFerry.app \
-            "dist/ScreenFerry-$VERSION-macos-unsigned.zip"
+          ditto -c -k --keepParent "$app" "dist/ScreenFerry-$VERSION-macos-unsigned.zip"
       - name: Upload to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -95,10 +98,12 @@ jobs:
       - name: Publish and package
         run: |
           mkdir -p dist
+          # Self-contained single files need no .NET runtime (ADR 0008). Restore above already enforced the lock files.
           for rid in win-x64 win-arm64; do
-            dotnet publish apps/windows/src/ScreenFerry.App -c Release -r "$rid" --self-contained false \
-              --no-restore -p:Version="$VERSION" -o "publish/$rid"
-            pwsh -NoProfile -Command "Compress-Archive -Path 'publish/$rid/*' -DestinationPath 'dist/ScreenFerry-$VERSION-$rid-unsigned.zip'"
+            dotnet publish apps/windows/src/ScreenFerry.App -c Release -r "$rid" --self-contained \
+              -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+              -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" -o "publish/$rid"
+            pwsh -NoProfile -Command "Compress-Archive -Path 'publish/$rid/ScreenFerry.exe' -DestinationPath 'dist/ScreenFerry-$VERSION-$rid-unsigned.zip'"
           done
       - name: Upload to release
         env:
