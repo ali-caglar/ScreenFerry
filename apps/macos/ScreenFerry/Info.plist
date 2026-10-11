@@ -6,5 +6,15 @@
 	<array>
 		<string>_screenferry._tcp</string>
 	</array>
+	<key>SUFeedURL</key>
+	<string>https://github.com/ali-caglar/ScreenFerry/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>34edkQI1i6ZMZkvBnRJfvopceEmT5u8ea7Sp07BDSQ0=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>

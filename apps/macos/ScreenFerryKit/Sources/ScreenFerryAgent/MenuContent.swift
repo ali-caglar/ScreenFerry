@@ -23,6 +23,9 @@ public struct MenuContent: View {
             if let note = controller.loginItemNote {
                 Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
+            if controller.canCheckForUpdates {
+                Button("Check for Updates…") { controller.checkForUpdates() }
+            }
             Button("Quit ScreenFerry") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }

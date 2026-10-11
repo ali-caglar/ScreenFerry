@@ -13,6 +13,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.21.0"),
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.10.0"),
     ],
     targets: [
         .target(name: "ScreenFerryKit"),
@@ -22,7 +23,10 @@ let package = Package(
             "ScreenFerryKit",
             .product(name: "X509", package: "swift-certificates"),
         ]),
-        .target(name: "ScreenFerryAgent", dependencies: ["ScreenFerryKit", "ScreenFerryNet", "ScreenFerryDisplays"]),
+        .target(name: "ScreenFerryAgent", dependencies: [
+            "ScreenFerryKit", "ScreenFerryNet", "ScreenFerryDisplays",
+            .product(name: "Sparkle", package: "Sparkle"),
+        ]),
         .testTarget(name: "ScreenFerryKitTests", dependencies: ["ScreenFerryKit"]),
         .testTarget(name: "ScreenFerryNetTests", dependencies: ["ScreenFerryNet"]),
     ]

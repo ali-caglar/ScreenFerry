@@ -10,7 +10,8 @@ C# on .NET 10, WPF, tray icon via `System.Windows.Forms.NotifyIcon` (ADR 0002).
   Builds and tests on any OS; DNS-SD plugs in through `IPeerDiscovery`.
 - `src/ScreenFerry.App/` — `net10.0-windows` WPF tray app (`ScreenFerry.exe`); CI publishes it
   as the `screenferry-windows-x64` artifact. `Controller` runs this PC's handoff steps and
-  scenes; hotkeys are Ctrl+Alt+Shift+1–9 (`GlobalHotKeys`, WM_HOTKEY via `ComponentDispatcher`). `UseWindowsForms`
+  scenes; hotkeys are Ctrl+Alt+Shift+1–9 (`GlobalHotKeys`, WM_HOTKEY via `ComponentDispatcher`).
+  `Updater` installs signed releases (ADR 0009; manifest and policy in Core `Updates.cs`). `UseWindowsForms`
   is on only for `NotifyIcon`; the implicit `System.Windows.Forms` using is removed to avoid
   clashes with WPF types, so alias it (`using Forms = System.Windows.Forms;`).
 - `src/ScreenFerry.Windows/` — `net10.0-windows` library for Windows APIs (P/Invoke via

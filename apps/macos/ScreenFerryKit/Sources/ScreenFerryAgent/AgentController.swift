@@ -51,6 +51,7 @@ public final class AgentController: ObservableObject, HandoffExecutor {
     private var hotKeys: HotKeys?
     private var subscriptions: [AnyCancellable] = []
     private let hud = HUD()
+    private var updates: Updates?
     private var shownHandoff: Agent.HandoffStatus?
 
     public init() {
@@ -71,6 +72,7 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             subscriptions.append(agent.$handoff.sink { [weak self] status in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.showProgress(status) } }
             })
+            updates = Updates { [weak agent] in agent?.handoff?.isFinished == false }
             refreshMonitors()
             monitorTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshMonitors() }
@@ -92,6 +94,12 @@ public final class AgentController: ObservableObject, HandoffExecutor {
         if status == .requiresApproval {
             loginItemNote = "Allow ScreenFerry in System Settings → General → Login Items."
         }
+    }
+
+    public var canCheckForUpdates: Bool { updates != nil }
+
+    public func checkForUpdates() {
+        updates?.checkForUpdates()
     }
 
     // MARK: Scenes

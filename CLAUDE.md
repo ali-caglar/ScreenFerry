@@ -34,7 +34,7 @@ architecture and roadmap; check which phase is current before adding features.
 - macOS private display APIs (SkyLight/CoreGraphics, IOAVService) stay isolated behind a
   feature check with a fallback; never call them from UI code directly.
 - No binaries, secrets or signing material in the repo. No telemetry, no network calls
-  outside the LAN.
+  outside the LAN except the signed update check against GitHub Releases (ADR 0009).
 - Comments: short, only for what the code cannot say.
 
 ## Checks before a PR
