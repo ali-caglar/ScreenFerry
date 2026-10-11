@@ -1,5 +1,5 @@
 {
-  "protocolVersion": 0,
+  "protocolVersion": 1,
   "type": "error",
   "code": "notPaired",
   "message": "This computer is not paired with you."

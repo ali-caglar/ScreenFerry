@@ -8,7 +8,7 @@ namespace ScreenFerry.Core;
 /// <summary>A message between agents; see <c>protocol/schemas/</c>.</summary>
 public abstract record ProtocolMessage
 {
-    public const int CurrentVersion = 0;
+    public const int CurrentVersion = 1;
 
     private static readonly JsonSerializerOptions s_options = new()
     {
