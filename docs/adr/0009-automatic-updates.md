@@ -1,6 +1,6 @@
 # 0009. Automatic updates
 
-- Status: Accepted
+- Status: Accepted; on Windows the update runs the installer (0010)
 - Date: 2026-10-11
 
 ## Context

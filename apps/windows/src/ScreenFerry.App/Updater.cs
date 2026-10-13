@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.IO.Compression;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -10,7 +9,7 @@ using ScreenFerry.Core;
 
 namespace ScreenFerry.App;
 
-/// <summary>Checks GitHub Releases for a signed update, installs it and restarts (ADR 0009).</summary>
+/// <summary>Checks GitHub Releases for a signed update and runs its installer, which restarts the app (ADR 0009, 0010).</summary>
 internal sealed class Updater : IDisposable
 {
     private static readonly Uri s_manifest = new("https://github.com/ali-caglar/ScreenFerry/releases/latest/download/windows-update.json");
@@ -22,17 +21,17 @@ internal sealed class Updater : IDisposable
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromMinutes(5) };
     private readonly Func<bool> _isBusy;
     private readonly Action<string> _notify;
-    private readonly Action _restart;
+    private readonly Action _quit;
     private readonly Timer? _timer;
     private int _running;
 
     /// <param name="notify">Called on a background thread.</param>
-    /// <param name="restart">Called on a background thread after the new exe started.</param>
-    public Updater(Func<bool> isBusy, Action<string> notify, Action restart)
+    /// <param name="quit">Called on a background thread after the installer started.</param>
+    public Updater(Func<bool> isBusy, Action<string> notify, Action quit)
     {
         _isBusy = isBusy;
         _notify = notify;
-        _restart = restart;
+        _quit = quit;
         _http.DefaultRequestHeaders.UserAgent.ParseAdd($"ScreenFerry/{CurrentVersion}");
         if (IsPublished)
         {
@@ -43,19 +42,18 @@ internal sealed class Updater : IDisposable
     public static string CurrentVersion =>
         (Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0").Split('+')[0];
 
-    /// <summary>A single-file publish, the only kind that can replace itself; not a build run from the IDE.</summary>
+    /// <summary>A single-file publish, as installed; not a build run from the IDE.</summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("SingleFile", "IL3000", Justification = "An empty location is exactly what identifies a single-file app.")]
     public static bool IsPublished => string.IsNullOrEmpty(typeof(Updater).Assembly.Location);
 
-    /// <summary>Deletes the exe an update replaced.</summary>
+    private static string SetupPath => Path.Combine(Path.GetTempPath(), "ScreenFerry-setup.exe");
+
+    /// <summary>Deletes the installer of the last update.</summary>
     public static void CleanUp()
     {
         try
         {
-            if (Environment.ProcessPath is { } exe && File.Exists(exe + ".old"))
-            {
-                File.Delete(exe + ".old");
-            }
+            File.Delete(SetupPath);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
@@ -76,7 +74,7 @@ internal sealed class Updater : IDisposable
         }
         try
         {
-            if (!IsPublished || Environment.ProcessPath is not { } exe)
+            if (!IsPublished)
             {
                 if (manual)
                 {
@@ -99,30 +97,24 @@ internal sealed class Updater : IDisposable
             {
                 return;
             }
-            var zip = await _http.GetByteArrayAsync(asset.Url).ConfigureAwait(false);
-            if (!UpdatePolicy.Verify(zip, asset, s_publicKey))
+            var setup = await _http.GetByteArrayAsync(asset.Url).ConfigureAwait(false);
+            if (!UpdatePolicy.Verify(setup, asset, s_publicKey))
             {
                 _notify($"The download of ScreenFerry {manifest.Version} failed verification, so it wasn't installed.");
                 return;
             }
 
-            var staged = exe + ".new";
-            using (var archive = new ZipArchive(new MemoryStream(zip)))
-            {
-                var entry = archive.GetEntry("ScreenFerry.exe") ?? throw new InvalidDataException("The update has no ScreenFerry.exe.");
-                entry.ExtractToFile(staged, overwrite: true);
-            }
+            await File.WriteAllBytesAsync(SetupPath, setup).ConfigureAwait(false);
             while (_isBusy())
             {
                 await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
             }
-            File.Move(exe, exe + ".old", overwrite: true);
-            File.Move(staged, exe);
-            Process.Start(new ProcessStartInfo(exe, ["--updated", manifest.Version, "--after", Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture)]) { UseShellExecute = false });
-            _restart();
+            // The installer waits for this process to quit, then starts the new version.
+            Process.Start(new ProcessStartInfo(SetupPath, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", $"/UPDATED={manifest.Version}"]) { UseShellExecute = false });
+            _quit();
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or IOException or JsonException
-            or InvalidDataException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+            or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
             if (manual)
             {

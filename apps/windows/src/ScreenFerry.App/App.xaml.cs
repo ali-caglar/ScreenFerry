@@ -22,11 +22,29 @@ public partial class App : Application
     private MainWindow? _window;
     private bool _promptShown;
     private Updater? _updater;
+    private Mutex? _instance;
+    private EventWaitHandle? _showRequest;
+    private RegisteredWaitHandle? _showWait;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        var updatedTo = AfterUpdate(e.Args);
+        // The installer waits for this mutex to go away before replacing the exe.
+        _instance = new Mutex(false, "ScreenFerry.Instance", out var first);
+        if (!first)
+        {
+            if (EventWaitHandle.TryOpenExisting("ScreenFerry.Show", out var running))
+            {
+                running.Set();
+                running.Dispose();
+            }
+            Shutdown();
+            return;
+        }
+        _showRequest = new EventWaitHandle(false, EventResetMode.AutoReset, "ScreenFerry.Show");
+        _showWait = ThreadPool.RegisterWaitForSingleObject(_showRequest, (_, _) => Dispatcher.BeginInvoke(ShowWindow), null, Timeout.Infinite, executeOnlyOnce: false);
+        Updater.CleanUp();
+        var updatedTo = Array.IndexOf(e.Args, "--updated") is var u and >= 0 && u + 1 < e.Args.Length ? e.Args[u + 1] : null;
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open ScreenFerry", null, (_, _) => ShowWindow());
@@ -82,25 +100,6 @@ public partial class App : Application
         }
     }
 
-    /// <summary>After a self-update: waits for the old process to exit and removes its exe. Returns the new version.</summary>
-    private static string? AfterUpdate(string[] args)
-    {
-        var updated = Array.IndexOf(args, "--updated") is var u and >= 0 && u + 1 < args.Length ? args[u + 1] : null;
-        if (Array.IndexOf(args, "--after") is var a and >= 0 && a + 1 < args.Length && int.TryParse(args[a + 1], out var pid))
-        {
-            try
-            {
-                using var old = System.Diagnostics.Process.GetProcessById(pid);
-                old.WaitForExit(TimeSpan.FromSeconds(15));
-            }
-            catch (ArgumentException)
-            {
-            }
-        }
-        Updater.CleanUp();
-        return updated;
-    }
-
     protected override void OnExit(ExitEventArgs e)
     {
         GlobalHotKeys.Unregister();
@@ -108,6 +107,9 @@ public partial class App : Application
         _monitorTimer?.Dispose();
         _agent?.Dispose();
         _trayIcon?.Dispose();
+        _showWait?.Unregister(null);
+        _showRequest?.Dispose();
+        _instance?.Dispose();
         base.OnExit(e);
     }
 

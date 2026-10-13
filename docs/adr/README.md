@@ -14,3 +14,4 @@ A superseded ADR stays in place with its status changed to `Superseded by NNNN`.
 | [0007](0007-scenes-and-handoff-coordination.md) | Scenes and handoff coordination | Accepted |
 | [0008](0008-unsigned-releases-before-signing.md) | Unsigned releases before signing | Accepted |
 | [0009](0009-automatic-updates.md) | Automatic updates | Accepted |
+| [0010](0010-windows-installer.md) | Windows installer | Accepted |

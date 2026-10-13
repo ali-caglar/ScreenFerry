@@ -124,16 +124,22 @@ jobs:
         run: echo "VERSION=$(scripts/version.sh)" >> "$GITHUB_ENV"
       - name: Restore
         run: dotnet restore apps/windows/ScreenFerry.sln --locked-mode
-      - name: Publish and package
+      - name: Publish
         run: |
-          mkdir -p dist
-          # Self-contained single files need no .NET runtime (ADR 0008). Restore above already enforced the lock files.
-          for rid in win-x64 win-arm64; do
-            dotnet publish apps/windows/src/ScreenFerry.App -c Release -r "$rid" --self-contained \
+          # Self-contained single files need no .NET runtime (ADR 0008); left uncompressed for the
+          # installer's LZMA (ADR 0010). Restore above already enforced the lock files.
+          for arch in x64 arm64; do
+            dotnet publish apps/windows/src/ScreenFerry.App -c Release -r "win-$arch" --self-contained \
               -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-              -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" -o "publish/$rid"
-            pwsh -NoProfile -Command "Compress-Archive -Path 'publish/$rid/ScreenFerry.exe' -DestinationPath 'dist/ScreenFerry-$VERSION-$rid-unsigned.zip'"
+              -p:Version="$VERSION" -o "publish/$arch"
           done
+      - name: Build installers
+        shell: pwsh
+        run: |
+          foreach ($arch in 'x64', 'arm64') {
+            & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DVersion=$env:VERSION" "/DArch=$arch" "/DSource=$PWD\publish\$arch\ScreenFerry.exe" /Odist apps\windows\installer\ScreenFerry.iss
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
       # Update manifest for the Windows agent (ADR 0009); skipped without the key.
       - name: Write update manifest
         env:
@@ -147,12 +153,12 @@ jobs:
           trap 'rm -f "$key"' EXIT
           printf '%s\n' "$WINDOWS_UPDATE_KEY" > "$key"
           assets=""
-          for rid in win-x64 win-arm64; do
-            zip="ScreenFerry-$VERSION-$rid-unsigned.zip"
-            sha=$(sha256sum "dist/$zip" | cut -d' ' -f1)
-            sig=$(openssl dgst -sha256 -sign "$key" "dist/$zip" | base64 -w0)
-            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$zip"
-            assets="$assets${assets:+,}\"$rid\":{\"url\":\"$url\",\"sha256\":\"$sha\",\"signature\":\"$sig\"}"
+          for arch in x64 arm64; do
+            setup="ScreenFerry-$VERSION-windows-$arch-setup.exe"
+            sha=$(sha256sum "dist/$setup" | cut -d' ' -f1)
+            sig=$(openssl dgst -sha256 -sign "$key" "dist/$setup" | base64 -w0)
+            url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$setup"
+            assets="$assets${assets:+,}\"win-$arch\":{\"url\":\"$url\",\"sha256\":\"$sha\",\"signature\":\"$sig\"}"
           done
           printf '{"version":"%s","assets":{%s}}\n' "$VERSION" "$assets" > dist/windows-update.json
           jq . dist/windows-update.json

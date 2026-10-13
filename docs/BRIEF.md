@@ -171,10 +171,10 @@ Each phase ends with its acceptance criteria met and merged to `main`.
 **Phase 5 — Distribution**
 - macOS: Developer ID signing + notarization; Windows: signed installer, winget manifest;
   Homebrew cask. Signing material only as CI secrets, never in the repo.
-- Until then, releases ship an ad-hoc signed macOS app and self-contained Windows exes with
-  install notes (ADR 0008), and the agents can start at login.
+- Until then, releases ship an ad-hoc signed macOS app with install notes (ADR 0008) and an
+  unsigned per-user Windows installer (ADR 0010), and the agents can start at login.
 - Agents update themselves from signed manifests in GitHub Releases: Sparkle on macOS, a small
-  self-replacing updater on Windows (ADR 0009).
+  updater on Windows that runs the new installer (ADR 0009, 0010).
 
 ## 7. Repository standards (public repo)
 
