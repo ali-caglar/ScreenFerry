@@ -3,7 +3,7 @@
 Download the files for your computers from the
 [latest release](https://github.com/ali-caglar/ScreenFerry/releases/latest). Builds are not
 signed yet ([ADR 0008](adr/0008-unsigned-releases-before-signing.md)), so each OS warns
-once on first launch. Install ScreenFerry on every computer that shares the monitors.
+once, on first launch or when you run the installer. Install ScreenFerry on every computer that shares the monitors.
 
 ## macOS
 
@@ -27,13 +27,20 @@ After an update, macOS asks once whether ScreenFerry may use its key in your key
 
 Requires Windows 10 version 1903 or later, or Windows 11.
 
-1. Download `ScreenFerry-X.Y.0-win-x64-unsigned.zip` (or `win-arm64` on ARM), and extract
-   `ScreenFerry.exe` to a folder it can stay in, for example
-   `%LOCALAPPDATA%\Programs\ScreenFerry`.
-2. Run it. SmartScreen says it protected your PC; click **More info → Run anyway**.
+1. Download `ScreenFerry-X.Y.0-windows-x64-setup.exe` (`windows-arm64` on an ARM PC such as a
+   Snapdragon laptop) and run it. SmartScreen says it protected your PC; click
+   **More info → Run anyway**.
+2. Keep **Start ScreenFerry when I sign in** checked if you want it to start with Windows, and
+   click **Install**. No administrator rights are needed; it installs for your user only.
 3. Windows Firewall asks about network access; allow it on **private networks**.
-4. ScreenFerry lives in the notification area. To start it with Windows, right-click its icon
-   and check **Start with Windows**.
+4. ScreenFerry lives in the notification area. Open it again from the Start menu; turn
+   autostart on or off with **Start with Windows** in its icon's menu.
+
+Uninstall it in **Settings → Apps → Installed apps**. Pairings and scenes stay, so a
+reinstall picks up where you left off.
+
+Coming from the 0.1.0 zip? Quit that ScreenFerry from its tray menu first, run the installer,
+then delete the old `ScreenFerry.exe`.
 
 ## Updates
 

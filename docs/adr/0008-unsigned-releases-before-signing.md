@@ -1,6 +1,6 @@
 # 0008. Unsigned releases before signing
 
-- Status: Accepted
+- Status: Accepted; the Windows zips are superseded by 0010
 - Date: 2026-10-11
 
 ## Context

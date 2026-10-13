@@ -8,16 +8,21 @@ C# on .NET 10, WPF, tray icon via `System.Windows.Forms.NotifyIcon` (ADR 0002).
   agent's networking (`AgentIdentity`, `PeerConnection` over `SslStream`, `Agent`), handoff
   coordination (`Handoff`, ADR 0007) and scenes (`SceneCatalog`).
   Builds and tests on any OS; DNS-SD plugs in through `IPeerDiscovery`.
-- `src/ScreenFerry.App/` — `net10.0-windows` WPF tray app (`ScreenFerry.exe`); CI publishes it
-  as the `screenferry-windows-x64` artifact. `Controller` runs this PC's handoff steps and
+- `src/ScreenFerry.App/` — `net10.0-windows` WPF tray app (`ScreenFerry.exe`); CI publishes its
+  x64 installer as the `screenferry-windows-x64` artifact. `Controller` runs this PC's handoff steps and
   scenes; hotkeys are Ctrl+Alt+Shift+1–9 (`GlobalHotKeys`, WM_HOTKEY via `ComponentDispatcher`).
-  `Updater` installs signed releases (ADR 0009; manifest and policy in Core `Updates.cs`). `UseWindowsForms`
+  `Updater` runs the installer of a signed release (ADR 0009, 0010; manifest and policy in Core
+  `Updates.cs`). One instance per user, held by the `ScreenFerry.Instance` mutex the installer
+  waits for. `UseWindowsForms`
   is on only for `NotifyIcon`; the implicit `System.Windows.Forms` using is removed to avoid
   clashes with WPF types, so alias it (`using Forms = System.Windows.Forms;`).
 - `src/ScreenFerry.Windows/` — `net10.0-windows` library for Windows APIs (P/Invoke via
   `LibraryImport`): DDC/CI through `dxva2`, EDID from the registry, CCD detach/attach, DNS-SD
   through `dnsapi.dll` (`DnsSdDiscovery`), the agent key in the user certificate store. Used by the app and
   `tools/ddc-probe-windows` (which is also in `ScreenFerry.sln`).
+- `installer/ScreenFerry.iss` — per-user Inno Setup 6 installer (ADR 0010), built by CI and the
+  release workflow with `ISCC /DVersion= /DArch= /DSource=`; Inno Setup is preinstalled on the
+  `windows-2025` runners.
 - `tests/ScreenFerry.Core.Tests/` — xUnit. Protocol fixtures and test vectors are copied into
   the test output under `fixtures/` and `test-vectors/`.
 - `Directory.Build.props` — shared settings (nullable, warnings as errors, analyzers,

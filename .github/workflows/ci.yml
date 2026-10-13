@@ -72,15 +72,21 @@ jobs:
           name: ddc-probe-windows-x64
           path: probe/ddc-probe.exe
           retention-days: 14
+      # Uncompressed: the installer's LZMA compresses it better (ADR 0010).
       - name: Publish ScreenFerry
         run: |
           dotnet publish apps/windows/src/ScreenFerry.App -c Release -r win-x64 --self-contained \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:EnableCompressionInSingleFile=true -p:Version="$VERSION" -o app
+            -p:Version="$VERSION" -o app
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Qp "/DVersion=$env:VERSION" /DArch=x64 "/DSource=$PWD\app\ScreenFerry.exe" /Osetup apps\windows\installer\ScreenFerry.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: screenferry-windows-x64
-          path: app/ScreenFerry.exe
+          path: setup/*.exe
           retention-days: 14
 
   protocol:
