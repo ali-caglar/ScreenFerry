@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/ali-caglar/ScreenFerry/compare/v0.1.0...v0.2.0) (2026-10-13)
+
+
+### Features
+
+* **windows:** ship a per-user installer and update through it ([#27](https://github.com/ali-caglar/ScreenFerry/issues/27)) ([125dd2c](https://github.com/ali-caglar/ScreenFerry/commit/125dd2caef70179f0fe890d6a80988b84e5ff182))
+
 ## 0.1.0 (2026-10-11)
 
 
