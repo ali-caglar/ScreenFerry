@@ -200,6 +200,34 @@ public final class Agent: ObservableObject {
         advanceHandoff()
     }
 
+    /// Gives each attached monitor that a connected peer also sees to that peer, before this Mac
+    /// shuts down. Returns whether there was one.
+    @discardableResult
+    public func handOffBeforeLeaving() -> Bool {
+        // Prefer a computer that has a monitor attached: the user is probably at it.
+        let peers = links.filter(\.isPaired).compactMap(\.peerID)
+            .map { (id: $0, monitors: peerMonitors[$0] ?? []) }
+            .sorted { a, b in
+                let (aAttached, bAttached) = (a.monitors.contains(where: \.attached), b.monitors.contains(where: \.attached))
+                return aAttached != bAttached ? aAttached : a.id < b.id
+            }
+        var owners: [String: String] = [:]
+        for monitor in localMonitors where monitor.attached {
+            if let peer = peers.first(where: { MonitorMatch.find(monitor, in: $0.monitors) != nil }) {
+                owners[monitor.identity] = peer.id
+            }
+        }
+        guard !owners.isEmpty else { return false }
+        activate(owners: owners)
+        return true
+    }
+
+    /// Every monitor of the current handoff is attached on the computer it goes to.
+    public var handoffReachedTargets: Bool {
+        guard let target = clock.target else { return false }
+        return target.owners.allSatisfy { monitor, owner in states(for: monitor).states[owner]?.attached == true }
+    }
+
     /// Connects to a paired peer, e.g. one not found by DNS-SD.
     public func connect(to endpoint: NWEndpoint) {
         connect(to: endpoint, wantsToPair: false)

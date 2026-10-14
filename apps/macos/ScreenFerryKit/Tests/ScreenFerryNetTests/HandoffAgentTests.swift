@@ -75,6 +75,20 @@ struct HandoffAgentTests {
         pc.stop()
     }
 
+    @Test func leavingHandsAttachedMonitorsToAPeer() async throws {
+        let (mac, pc) = try await Self.pairedAgents()
+        let macDisplays = FakeDisplays(mac, [.init(identity: Self.g8, attached: true, inputCode: 17)])
+        let pcDisplays = FakeDisplays(pc, [.init(identity: Self.g8, attached: false, inputCode: 15)])
+        try await AgentTests.eventually("monitors exchanged") { AgentTests.connected(mac, to: pc)?.monitors.count == 1 }
+
+        #expect(mac.handOffBeforeLeaving())
+        try await AgentTests.eventually("attached on the PC") { mac.handoffReachedTargets }
+        #expect(macDisplays.steps == [.switchAndRelease(inputCode: 15)])
+        #expect(pcDisplays.steps == [.attach])
+        mac.stop()
+        pc.stop()
+    }
+
     @Test func ddcSwitchesThenAttaches() async throws {
         let (mac, pc) = try await Self.pairedAgents()
         let macDisplays = FakeDisplays(mac, [.init(identity: Self.g8, attached: true, inputCode: 17)])

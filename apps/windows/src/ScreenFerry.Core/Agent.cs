@@ -208,6 +208,47 @@ public sealed class Agent : IDisposable
         AdvanceHandoff();
     });
 
+    /// <summary>Gives each attached monitor that a connected peer also sees to that peer, before this computer shuts down. Returns whether there was one.</summary>
+    public bool HandOffBeforeLeaving()
+    {
+        var owners = new Dictionary<string, string>();
+        lock (_gate)
+        {
+            // Prefer a computer that has a monitor attached: the user is probably at it.
+            var peers = _links.Where(l => l.IsPaired && l.PeerId is not null)
+                .Select(l => (Id: l.PeerId!, Monitors: _peerMonitors.GetValueOrDefault(l.PeerId!) ?? []))
+                .OrderByDescending(p => p.Monitors.Any(m => m.Attached))
+                .ThenBy(p => p.Id, StringComparer.Ordinal)
+                .ToList();
+            foreach (var monitor in _localMonitors.Where(m => m.Attached))
+            {
+                if (peers.FirstOrDefault(p => MonitorMatch.Find(monitor, p.Monitors) is not null).Id is { } peer)
+                {
+                    owners[monitor.Identity] = peer;
+                }
+            }
+        }
+        if (owners.Count == 0)
+        {
+            return false;
+        }
+        Activate(owners);
+        return true;
+    }
+
+    /// <summary>Every monitor of the current handoff is attached on the computer it goes to.</summary>
+    public bool HandoffReachedTargets
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _clock.Target is { } target
+                    && target.Owners.All(o => StatesFor(o.Key).States.TryGetValue(o.Value, out var state) && state.Attached);
+            }
+        }
+    }
+
     private void Mutate(Action change)
     {
         lock (_gate)

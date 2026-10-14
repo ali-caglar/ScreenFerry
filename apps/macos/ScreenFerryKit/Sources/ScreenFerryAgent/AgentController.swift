@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 import ScreenFerryDisplays
@@ -53,6 +54,8 @@ public final class AgentController: ObservableObject, HandoffExecutor {
     private let hud = HUD()
     private var updates: Updates?
     private var shownHandoff: Agent.HandoffStatus?
+    /// When a shutdown, restart or logout started handing this Mac's monitors to another computer.
+    private var leavingSince: Date?
 
     public init() {
         do {
@@ -72,6 +75,9 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             subscriptions.append(agent.$handoff.sink { [weak self] status in
                 DispatchQueue.main.async { MainActor.assumeIsolated { self?.showProgress(status) } }
             })
+            NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.leave() }
+            }
             updates = Updates { [weak agent] in agent?.handoff?.isFinished == false }
             refreshMonitors()
             monitorTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
@@ -94,6 +100,28 @@ public final class AgentController: ObservableObject, HandoffExecutor {
         if status == .requiresApproval {
             loginItemNote = "Allow ScreenFerry in System Settings → General → Login Items."
         }
+    }
+
+    /// Holds off quitting for a few seconds while a shutdown hands this Mac's monitors to another computer.
+    public func shouldTerminate() -> NSApplication.TerminateReply {
+        guard let agent, let leavingSince, !agent.handoffReachedTargets else { return .terminateNow }
+        replyToTerminate(by: leavingSince.addingTimeInterval(5))
+        return .terminateLater
+    }
+
+    private func replyToTerminate(by deadline: Date) {
+        guard agent?.handoffReachedTargets == false, Date() < deadline else {
+            NSApp.reply(toApplicationShouldTerminate: true)
+            return
+        }
+        // The main queue keeps running while terminateLater holds the app in the modal panel mode.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            MainActor.assumeIsolated { self?.replyToTerminate(by: deadline) }
+        }
+    }
+
+    private func leave() {
+        if agent?.handOffBeforeLeaving() == true { leavingSince = Date() }
     }
 
     public var canCheckForUpdates: Bool { updates != nil }
@@ -168,9 +196,13 @@ public final class AgentController: ObservableObject, HandoffExecutor {
             return MonitorMatch.find(reference, in: seen[computer] ?? []) != nil
         }
 
+        // A monitor this Mac released can come back while its new owner is offline.
+        let released = Set(localMonitors.filter { !$0.attached }.map(\.identity))
         var entries: [SceneEntry] = []
         for computer in computers {
-            let shared = known.filter { $0.seenBy.contains(computer.id) && $0.seenBy.count > 1 }
+            let shared = known.filter {
+                $0.seenBy.contains(computer.id) && ($0.seenBy.count > 1 || (computer.id == agent.keyID && released.contains($0.identity)))
+            }
             let scene = Scene(id: "all:\(computer.id)", name: "All Monitors → \(computer.name)",
                               owners: Dictionary(shared.map { ($0.identity, computer.id) }) { a, _ in a })
             entries.append(SceneEntry(scene: scene, isBuiltIn: true, isAvailable: !shared.isEmpty))

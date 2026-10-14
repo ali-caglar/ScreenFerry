@@ -58,16 +58,22 @@ public static class SceneCatalog
     }
 
     /// <summary>One built-in scene per computer, then <paramref name="custom"/> by name.</summary>
+    /// <param name="computers">This computer first, as from <see cref="Computers"/>.</param>
     /// <param name="seen">Key ID → the monitors that computer reports, for this computer and the connected peers.</param>
     public static IReadOnlyList<SceneEntry> Build(IReadOnlyList<Computer> computers, IReadOnlyDictionary<string, IReadOnlyList<MonitorStatus>> seen, IEnumerable<Scene> custom)
     {
         ArgumentNullException.ThrowIfNull(computers);
         ArgumentNullException.ThrowIfNull(seen);
         var known = Monitors(computers, seen);
+        // A monitor this computer released can come back while its new owner is offline.
+        var released = computers.Count > 0 && seen.TryGetValue(computers[0].Id, out var local)
+            ? local.Where(m => !m.Attached).Select(m => m.Identity).ToHashSet(StringComparer.Ordinal)
+            : [];
         var entries = new List<SceneEntry>();
         foreach (var computer in computers)
         {
-            var shared = known.Where(m => m.SeenBy.Contains(computer.Id) && m.SeenBy.Count > 1).ToList();
+            var shared = known.Where(m => m.SeenBy.Contains(computer.Id)
+                && (m.SeenBy.Count > 1 || (computer == computers[0] && released.Contains(m.Identity)))).ToList();
             var scene = new Scene($"all:{computer.Id}", $"All Monitors → {computer.Name}", shared.ToDictionary(m => m.Identity, _ => computer.Id));
             entries.Add(new SceneEntry(scene, true, shared.Count > 0, null));
         }
