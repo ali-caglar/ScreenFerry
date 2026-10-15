@@ -116,3 +116,17 @@ part of a scene, and its UI says why.
   code for it.
 - Scenes have to be set up on each computer. Syncing them can come later as a new message
   type without breaking this one.
+
+## Amendments
+
+- 2026-10-14, **a computer that goes away.** Found when the Mac was shut down while it owned a
+  monitor: the PC couldn't take it back, because built-in scenes only listed monitors that
+  two *connected* computers see.
+  - "All Monitors → this computer" also lists the monitors this computer sees but has
+    released, so it works while their owner is offline. The steps already ignore computers
+    that aren't connected, so the agent simply attaches the monitor and, for DDC/CI
+    monitors, selects its own input.
+  - On shutdown, restart or logout (macOS `NSWorkspace.willPowerOffNotification`, Windows
+    session ending), an agent starts a handoff of its attached monitors to a connected peer
+    that sees them, preferring one that has a monitor attached, and delays quitting until the
+    peer reports them attached, at most about 4–5 s. Sleep doesn't trigger it.

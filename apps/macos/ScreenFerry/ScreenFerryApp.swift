@@ -3,14 +3,23 @@ import SwiftUI
 
 @main
 struct ScreenFerryApp: App {
-    @StateObject private var controller = AgentController()
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
     var body: some Scene {
         MenuBarExtra {
-            MenuContent(controller: controller)
+            MenuContent(controller: delegate.controller)
         } label: {
-            MenuBarIcon(controller: controller)
+            MenuBarIcon(controller: delegate.controller)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    let controller = AgentController()
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        controller.shouldTerminate()
     }
 }

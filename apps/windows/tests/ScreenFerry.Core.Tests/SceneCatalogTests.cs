@@ -43,6 +43,18 @@ public class SceneCatalogTests
     }
 
     [Fact]
+    public void ReleasedMonitorComesBackWhileItsOwnerIsOffline()
+    {
+        var seen = new Dictionary<string, IReadOnlyList<MonitorStatus>> { ["pc"] = [new("G8", false), new("ASUS", true)] };
+
+        var entries = SceneCatalog.Build(s_computers, seen, []);
+
+        Assert.True(entries[0].IsAvailable);
+        Assert.Equal(new Dictionary<string, string> { ["G8"] = "pc" }, entries[0].Scene.Owners);
+        Assert.False(entries[1].IsAvailable);
+    }
+
+    [Fact]
     public void NothingSharedMeansUnavailable()
     {
         var seen = new Dictionary<string, IReadOnlyList<MonitorStatus>> { ["pc"] = [new("G8", true)] };

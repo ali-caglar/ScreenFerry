@@ -100,6 +100,22 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Hands this PC's monitors to another computer before Windows signs out or shuts down.</summary>
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        base.OnSessionEnding(e);
+        if (_agent?.HandOffBeforeLeaving() != true)
+        {
+            return;
+        }
+        // Windows waits about 5 s before it lists the app as blocking shutdown.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(4);
+        while (!_agent.HandoffReachedTargets && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(100);
+        }
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         GlobalHotKeys.Unregister();

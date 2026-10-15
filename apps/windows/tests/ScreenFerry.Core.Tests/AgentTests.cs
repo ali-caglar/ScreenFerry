@@ -196,6 +196,19 @@ public sealed class AgentTests : IDisposable
         Assert.True(mac.CurrentHandoff!.IsFinished);
     }
 
+    [Fact]
+    public async Task LeavingHandsAttachedMonitorsToAPeer()
+    {
+        var (mac, pc) = await PairedAgents();
+        _ = new FakeDisplays(mac, new MonitorStatus(G8, Attached: true));
+        var pcDisplays = new FakeDisplays(pc, new MonitorStatus(G8, Attached: false));
+        await Eventually("monitors exchanged", () => Connected(mac, pc)?.Monitors.Count == 1);
+
+        Assert.True(mac.HandOffBeforeLeaving());
+        await Eventually("attached on the PC", () => mac.HandoffReachedTargets);
+        Assert.Equal([new HandoffStep(HandoffStepKind.Attach)], pcDisplays.Steps);
+    }
+
     private sealed class FakeDisplays : IHandoffExecutor
     {
         private readonly Agent _agent;
