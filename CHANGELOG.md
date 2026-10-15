@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/ali-caglar/ScreenFerry/compare/v0.2.0...v0.3.0) (2026-10-15)
+
+
+### Features
+
+* hand monitors over when a computer shuts down ([#29](https://github.com/ali-caglar/ScreenFerry/issues/29)) ([8aba98e](https://github.com/ali-caglar/ScreenFerry/commit/8aba98e2ff55687c23d0387457f02e8348bda4e2))
+
 ## [0.2.0](https://github.com/ali-caglar/ScreenFerry/compare/v0.1.0...v0.2.0) (2026-10-13)
 
 
